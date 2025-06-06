@@ -106,3 +106,4 @@ apps/claude-trace/test/index.html
 apps/claude-bridge/.claude-bridge
 apps/claude-bridge/.test-claude-bridge-e2e
 apps/port-cpp/.claude-logs
+apps/port-cpp/porting-plan.json

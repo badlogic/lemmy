@@ -149,7 +149,7 @@ Use the Read tool to examine the Java type at the specified file path and line r
 
 If the file is too large and the Read tool returns an error or truncated content, read it in chunks using multiple Read calls with different offset and limit parameters.
 
-Open the Java source file in the righ panel in the file viewer (index 1), and highlight the Java type's `startLine`.
+Open the Java source file in the righ panel in the file viewer (index 1), and highlight the Java type's `startLine`. Do this in one `mcp__puppeteer__puppeteer_evaluate()` call.
 
 ### 5. Check if Git Changes Affect This Type
 
@@ -179,6 +179,8 @@ In this step you are encouraged to collaborate with the user, ask them questions
    - Ensure C++ version has 100% functional parity with Java
 - **Never mark as "done" unless the C++ implementation is functionally complete and matches the Java type**
 - **For new types or types whose name and thus .h files have changed:** Add the header include to `spine.h`
+
+IMPORTANT: DO NOT FORGET TO OPEN NEWLY CREATED FILES IN THE LEFT PANEL (index 0)
 
 ### 7. Update the Porting Plan
 
