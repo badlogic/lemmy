@@ -102,7 +102,15 @@ function getClaudeAbsolutePath(): string {
 			})
 			.trim();
 	} catch (error) {
+		const os = require("os");
+		const localClaudePath = path.join(os.homedir(), ".claude", "local", "node_modules", ".bin", "claude");
+
+		if (fs.existsSync(localClaudePath)) {
+			return localClaudePath;
+		}
+
 		log(`❌ Claude CLI not found in PATH`, "red");
+		log(`❌ Also checked for local installation at: ${localClaudePath}`, "red");
 		log(`❌ Please install Claude Code CLI first`, "red");
 		process.exit(1);
 	}
