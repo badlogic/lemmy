@@ -229,9 +229,12 @@ export class OpenAIClient implements ChatClient<OpenAIAskOptions> {
 		let stopReason: string | undefined;
 		let toolCalls: ToolCall[] = [];
 		const currentToolCalls = new Map<number, { id?: string; name?: string; arguments?: string }>();
+		let allChunks: OpenAI.Chat.ChatCompletionChunk[] = []; // Store all chunks for debugging
 
 		try {
 			for await (const chunk of stream) {
+				// Store chunk for debugging
+				allChunks.push(chunk);
 				// Handle usage information (comes in final chunk with stream_options)
 				if (chunk.usage) {
 					inputTokens = chunk.usage.prompt_tokens || 0;
@@ -291,15 +294,119 @@ export class OpenAIClient implements ChatClient<OpenAIAskOptions> {
 						if (argsString.trim() === "") {
 							argsString = "{}";
 						}
-						const parsedArgs = JSON.parse(argsString);
+
+						// Handle tool arguments parsing with Claude-style concatenated JSON support
+						let parsedArgs;
+
+						// Check if this looks like concatenated JSON objects (Claude-style) first
+						if (argsString.includes("}{")) {
+							console.log("Detected concatenated JSON objects, attempting to merge");
+							try {
+								// Split by }{ and reconstruct as separate objects
+								const jsonStrings = argsString.split("}{").map((part, index, array) => {
+									if (index === 0) return part + "}";
+									if (index === array.length - 1) return "{" + part;
+									return "{" + part + "}";
+								});
+
+								// Parse each JSON object and handle duplicate keys properly
+								const mergedArgs: Record<string, unknown> = {};
+								const arrayKeys = new Set<string>();
+
+								for (const jsonStr of jsonStrings) {
+									try {
+										const parsed = JSON.parse(jsonStr);
+										for (const [key, value] of Object.entries(parsed)) {
+											if (mergedArgs[key] !== undefined) {
+												// Duplicate key found - convert to array
+												if (!arrayKeys.has(key)) {
+													mergedArgs[key] = [mergedArgs[key]];
+													arrayKeys.add(key);
+												}
+												(mergedArgs[key] as unknown[]).push(value);
+											} else {
+												mergedArgs[key] = value;
+											}
+										}
+									} catch (err) {
+										console.error(`Failed to parse individual JSON object: ${jsonStr}`, err);
+									}
+								}
+
+								parsedArgs = mergedArgs;
+								console.log(
+									`Successfully merged ${jsonStrings.length} JSON objects for tool ${toolCallData.name}`,
+								);
+							} catch (mergeError) {
+								console.error(`Failed to merge concatenated JSON:`, mergeError);
+								console.error(`Complete toolCallData:`, toolCallData);
+								console.error(
+									`Problematic JSON string (length: ${argsString.length}):`,
+									JSON.stringify(argsString),
+								);
+								parsedArgs = {};
+							}
+						} else {
+							// Standard JSON parsing
+							try {
+								parsedArgs = JSON.parse(argsString);
+							} catch (parseError) {
+								// Log the problematic JSON for debugging
+								console.error(`Failed to parse tool arguments for tool ${toolCallData.name}:`, parseError);
+								console.error(`Complete toolCallData:`, toolCallData);
+								console.error(
+									`Problematic JSON string (length: ${argsString.length}):`,
+									JSON.stringify(argsString),
+								);
+
+								// Log relevant streaming chunks for debugging
+								console.error(`LLM Response Debug - Tool call chunks for ${toolCallData.name}:`);
+								const relevantChunks = allChunks.filter((chunk) =>
+									chunk.choices?.[0]?.delta?.tool_calls?.some((tc) => tc.id === toolCallData.id),
+								);
+								if (relevantChunks.length > 0) {
+									console.error(`Found ${relevantChunks.length} relevant chunks:`);
+									relevantChunks.forEach((chunk, i) => {
+										console.error(
+											`Chunk ${i}:`,
+											JSON.stringify(chunk.choices?.[0]?.delta?.tool_calls, null, 2),
+										);
+									});
+								} else {
+									console.error(`No relevant chunks found for tool ID ${toolCallData.id}`);
+								}
+
+								// Try to fix common issues with malformed JSON
+								let cleanedArgsString = argsString.trim();
+
+								// Remove any trailing non-JSON content after the last closing brace
+								const lastBraceIndex = cleanedArgsString.lastIndexOf("}");
+								if (lastBraceIndex !== -1 && lastBraceIndex < cleanedArgsString.length - 1) {
+									console.log(`Trimming extra content after position ${lastBraceIndex}`);
+									cleanedArgsString = cleanedArgsString.substring(0, lastBraceIndex + 1);
+								}
+
+								// Try parsing the cleaned string
+								try {
+									parsedArgs = JSON.parse(cleanedArgsString);
+									console.log(`Successfully parsed cleaned JSON for tool ${toolCallData.name}`);
+								} catch (secondParseError) {
+									console.error(`Still failed to parse cleaned JSON:`, secondParseError);
+									console.error(`Cleaned JSON string:`, JSON.stringify(cleanedArgsString));
+									// Fall back to empty object if we can't parse it
+									parsedArgs = {};
+								}
+							}
+						}
+
 						toolCalls.push({
 							id: toolCallData.id,
 							name: toolCallData.name,
 							arguments: parsedArgs,
 						});
 					} catch (error) {
-						// Invalid JSON in tool arguments - we'll handle this as an error
-						console.error("Failed to parse tool arguments:", error);
+						// Unexpected error in tool call processing
+						console.error("Unexpected error processing tool call:", error);
 					}
 				}
 			}

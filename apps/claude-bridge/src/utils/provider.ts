@@ -28,18 +28,12 @@ import type { MessageCreateParamsBase } from "@anthropic-ai/sdk/resources/messag
  * Create provider-agnostic client for a given model
  */
 export async function createProviderClient(config: BridgeConfig): Promise<ProviderClientInfo> {
-	// For known models, use the registry
 	const modelData = findModelData(config.model);
 	let provider: Provider;
 	let client: ChatClient;
 
-	if (modelData) {
-		// Known model - use standard approach
-		provider = getProviderForModel(config.model as AllModels) as Provider;
-		const providerConfig = buildProviderConfig(provider, config);
-		client = createClientForModel(config.model as AllModels, providerConfig);
-	} else {
-		// Unknown model - use the configured provider directly
+	// If a provider is explicitly configured, use it first
+	if (config.provider) {
 		provider = config.provider;
 		const providerConfig = buildProviderConfig(provider, config);
 
@@ -64,6 +58,16 @@ export async function createProviderClient(config: BridgeConfig): Promise<Provid
 				const _exhaustiveCheck: never = provider;
 				throw new Error(`Unsupported provider: ${_exhaustiveCheck}`);
 		}
+	} else if (modelData) {
+		// Fall back to known model - use standard approach
+		provider = getProviderForModel(config.model as AllModels) as Provider;
+		const providerConfig = buildProviderConfig(provider, config);
+		client = createClientForModel(config.model as AllModels, providerConfig);
+	} else {
+		// No provider configured and unknown model
+		throw new Error(
+			`No provider specified and model '${config.model}' is not recognized. Please specify a provider.`,
+		);
 	}
 
 	return {
