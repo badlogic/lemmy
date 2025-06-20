@@ -6,12 +6,13 @@
 		"packages/*"
 	],
 	"scripts": {
-		"build": "npm run build --workspace=packages/server --workspace=packages/frontend",
-		"dev": "npm run dev --workspace=packages/server --workspace=packages/frontend",
-		"test": "npm run test --workspace=packages/server --workspace=packages/frontend",
+		"prebuild": "npm install",
+		"build": "cd packages/server && npm run build && cd ../frontend && npm run build",
+		"dev": "cd packages/server && npm run dev && cd ../frontend && npm run dev",
+		"test": "cd packages/server && npm run test && cd ../frontend && npm run test",
 		"test:manual": "node scripts/test-manual.js",
 		"test:auto": "node scripts/test-auto.js",
-		"clean": "npm run clean --workspace=packages/server --workspace=packages/frontend"
+		"clean": "cd packages/server && npm run clean && cd ../frontend && npm run clean"
 	},
 	"keywords": [
 		"mcp",
