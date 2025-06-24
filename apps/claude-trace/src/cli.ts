@@ -4,6 +4,7 @@ import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import { HTMLGenerator } from "./html-generator";
+import { t } from "./i18n";
 
 // Colors for output
 export const colors = {
@@ -22,40 +23,40 @@ function log(message: string, color: ColorName = "reset"): void {
 
 function showHelp(): void {
 	console.log(`
-${colors.blue}Claude Trace${colors.reset}
-Record all your interactions with Claude Code as you develop your projects
+${colors.blue}${t("cli.title")}${colors.reset}
+${t("cli.description")}
 
-${colors.yellow}USAGE:${colors.reset}
+${colors.yellow}${t("cli.usage")}${colors.reset}
   claude-trace [OPTIONS] [--run-with CLAUDE_ARG...]
 
-${colors.yellow}OPTIONS:${colors.reset}
-  --extract-token    Extract OAuth token and exit (reproduces claude-token.py)
-  --generate-html    Generate HTML report from JSONL file
-  --index           Generate conversation summaries and index for .claude-trace/ directory
-  --run-with         Pass all following arguments to Claude process
-  --include-all-requests Include all requests made through fetch, otherwise only requests to v1/messages with more than 2 messages in the context
-  --no-open          Don't open generated HTML file in browser (works with --generate-html)
-  --help, -h         Show this help message
+${colors.yellow}${t("cli.options")}${colors.reset}
+  --extract-token    ${t("cli.help.extractToken")}
+  --generate-html    ${t("cli.help.generateHtml")}
+  --index           ${t("cli.help.index")}
+  --run-with         ${t("cli.help.runWith")}
+  --include-all-requests ${t("cli.help.includeAllRequests")}
+  --no-open          ${t("cli.help.noOpen")}
+  --help, -h         ${t("cli.help.helpFlag")}
 
-${colors.yellow}MODES:${colors.reset}
-  ${colors.green}Interactive logging:${colors.reset}
+${colors.yellow}${t("cli.modes")}${colors.reset}
+  ${colors.green}${t("cli.modeLabels.interactiveLogging")}${colors.reset}
     claude-trace                               Start Claude with traffic logging
     claude-trace --run-with chat                    Run Claude with specific command
     claude-trace --run-with chat --model sonnet-3.5 Run Claude with multiple arguments
 
-  ${colors.green}Token extraction:${colors.reset}
+  ${colors.green}${t("cli.modeLabels.tokenExtraction")}${colors.reset}
     claude-trace --extract-token               Extract OAuth token for SDK usage
 
-  ${colors.green}HTML generation:${colors.reset}
+  ${colors.green}${t("cli.modeLabels.htmlGeneration")}${colors.reset}
     claude-trace --generate-html file.jsonl          Generate HTML from JSONL file
     claude-trace --generate-html file.jsonl out.html Generate HTML with custom output name
     claude-trace --generate-html file.jsonl          Generate HTML and open in browser (default)
     claude-trace --generate-html file.jsonl --no-open Generate HTML without opening browser
 
-  ${colors.green}Indexing:${colors.reset}
+  ${colors.green}${t("cli.modeLabels.indexing")}${colors.reset}
     claude-trace --index                             Generate conversation summaries and index
 
-${colors.yellow}EXAMPLES:${colors.reset}
+${colors.yellow}${t("cli.examples")}${colors.reset}
   # Start Claude with logging
   claude-trace
 
@@ -83,10 +84,10 @@ ${colors.yellow}EXAMPLES:${colors.reset}
   # Generate conversation index
   claude-trace --index
 
-${colors.yellow}OUTPUT:${colors.reset}
+${colors.yellow}${t("cli.output")}${colors.reset}
   Logs are saved to: ${colors.green}.claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}${colors.reset}
 
-${colors.yellow}MIGRATION:${colors.reset}
+${colors.yellow}${t("cli.migration")}${colors.reset}
   This tool replaces Python-based claude-logger and claude-token.py scripts
   with a pure Node.js implementation. All output formats are compatible.
 
@@ -109,9 +110,9 @@ function getClaudeAbsolutePath(): string {
 			return localClaudePath;
 		}
 
-		log(`❌ Claude CLI not found in PATH`, "red");
-		log(`❌ Also checked for local installation at: ${localClaudePath}`, "red");
-		log(`❌ Please install Claude Code CLI first`, "red");
+		log(t("cli.errors.claudeNotFound"), "red");
+		log(`${t("cli.errors.claudeLocalNotFound")} ${localClaudePath}`, "red");
+		log(t("cli.errors.installClaude"), "red");
 		process.exit(1);
 	}
 }
@@ -120,7 +121,7 @@ function getLoaderPath(): string {
 	const loaderPath = path.join(__dirname, "interceptor-loader.js");
 
 	if (!fs.existsSync(loaderPath)) {
-		log(`❌ Interceptor loader not found at: ${loaderPath}`, "red");
+		log(`${t("cli.errors.interceptorNotFound")} ${loaderPath}`, "red");
 		process.exit(1);
 	}
 
@@ -133,8 +134,7 @@ async function runClaudeWithInterception(
 	includeAllRequests: boolean = false,
 	openInBrowser: boolean = false,
 ): Promise<void> {
-	log("🚀 Claude Trace", "blue");
-	log("Starting Claude with traffic logging", "yellow");
+	log(t("cli.messages.startingClaude"), "blue");
 	if (claudeArgs.length > 0) {
 		log(`🔧 Claude arguments: ${claudeArgs.join(" ")}`, "blue");
 	}
@@ -143,8 +143,8 @@ async function runClaudeWithInterception(
 	const claudePath = getClaudeAbsolutePath();
 	const loaderPath = getLoaderPath();
 
-	log("🔄 Starting traffic logger...", "green");
-	log("📁 Logs will be written to: .claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}", "blue");
+	log(t("cli.messages.trafficLogger"), "green");
+	log(t("cli.messages.logsLocation"), "blue");
 	console.log("");
 
 	// Launch node with interceptor and absolute path to claude, plus any additional arguments
@@ -162,23 +162,23 @@ async function runClaudeWithInterception(
 
 	// Handle child process events
 	child.on("error", (error: Error) => {
-		log(`❌ Error starting Claude: ${error.message}`, "red");
+		log(`${t("cli.errors.errorStartingClaude")} ${error.message}`, "red");
 		process.exit(1);
 	});
 
 	child.on("exit", (code: number | null, signal: string | null) => {
 		if (signal) {
-			log(`\n🔄 Claude terminated by signal: ${signal}`, "yellow");
+			log(`\n${t("cli.messages.claudeTerminated")} ${signal}`, "yellow");
 		} else if (code !== 0 && code !== null) {
-			log(`\n⚠️  Claude exited with code: ${code}`, "yellow");
+			log(`\n${t("cli.messages.claudeExited")} ${code}`, "yellow");
 		} else {
-			log("\n✅ Claude session completed", "green");
+			log(`\n${t("cli.messages.claudeSessionCompleted")}`, "green");
 		}
 	});
 
 	// Handle our own signals
 	const handleSignal = (signal: string) => {
-		log(`\n🔄 Received ${signal}, shutting down...`, "yellow");
+		log(`\n${t("cli.messages.receivedSignal")} ${signal}, ${t("cli.messages.shutdownMessage")}`, "yellow");
 		if (child.pid) {
 			child.kill(signal as NodeJS.Signals);
 		}
@@ -195,7 +195,7 @@ async function runClaudeWithInterception(
 		});
 	} catch (error) {
 		const err = error as Error;
-		log(`❌ Unexpected error: ${err.message}`, "red");
+		log(`${t("cli.errors.unexpectedError")} ${err.message}`, "red");
 		process.exit(1);
 	}
 }
@@ -244,7 +244,7 @@ async function extractToken(): Promise<void> {
 	const timeout = setTimeout(() => {
 		child.kill();
 		cleanup();
-		console.error("❌ Timeout: No token found within 30 seconds");
+		console.error(t("cli.errors.tokenTimeout"));
 		process.exit(1);
 	}, 30000);
 
@@ -252,7 +252,7 @@ async function extractToken(): Promise<void> {
 	child.on("error", (error: Error) => {
 		clearTimeout(timeout);
 		cleanup();
-		console.error(`❌ Error starting Claude: ${error.message}`);
+		console.error(`${t("cli.errors.errorStartingClaude")} ${error.message}`);
 		process.exit(1);
 	});
 
@@ -274,7 +274,7 @@ async function extractToken(): Promise<void> {
 		}
 
 		cleanup();
-		console.error("❌ No authorization token found");
+		console.error(t("cli.errors.tokenNotFound"));
 		process.exit(1);
 	});
 
@@ -313,13 +313,13 @@ async function generateHTMLFromCLI(
 
 		if (openInBrowser) {
 			spawn("open", [finalOutputFile], { detached: true, stdio: "ignore" }).unref();
-			log(`🌐 Opening ${finalOutputFile} in browser`, "green");
+			log(`${t("cli.messages.openingBrowser")} ${finalOutputFile} in browser`, "green");
 		}
 
 		process.exit(0);
 	} catch (error) {
 		const err = error as Error;
-		log(`❌ Error: ${err.message}`, "red");
+		log(`${t("cli.errors.unexpectedError")} ${err.message}`, "red");
 		process.exit(1);
 	}
 }
@@ -333,7 +333,7 @@ async function generateIndex(): Promise<void> {
 		process.exit(0);
 	} catch (error) {
 		const err = error as Error;
-		log(`❌ Error: ${err.message}`, "red");
+		log(`${t("cli.errors.unexpectedError")} ${err.message}`, "red");
 		process.exit(1);
 	}
 }
@@ -389,8 +389,8 @@ async function main(): Promise<void> {
 		}
 
 		if (!inputFile) {
-			log(`❌ Missing input file for --generate-html`, "red");
-			log(`Usage: claude-trace --generate-html input.jsonl [output.html]`, "yellow");
+			log(t("cli.errors.missingInputFile"), "red");
+			log(t("cli.errors.usageGenerateHtml"), "yellow");
 			process.exit(1);
 		}
 
@@ -410,6 +410,6 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
 	const err = error as Error;
-	log(`❌ Unexpected error: ${err.message}`, "red");
+	log(`${t("cli.errors.unexpectedError")} ${err.message}`, "red");
 	process.exit(1);
 });
