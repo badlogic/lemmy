@@ -59,8 +59,8 @@ function main() {
 		
 		const langPath = path.join(translationsDir, `${lang}.json`);
 		if (!fs.existsSync(langPath)) {
-			console.log(`⚠️  ${lang.toUpperCase()}: Translation file not found`);
-			continue;
+			console.error(`❌ ${lang.toUpperCase()}: Translation file not found`);
+			process.exit(1);
 		}
 		
 		const translations = JSON.parse(fs.readFileSync(langPath, "utf-8"));
