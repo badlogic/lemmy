@@ -49,6 +49,20 @@ describe("i18n", () => {
 			expect(t("cli.description")).toContain("プロジェクト開発中");
 		});
 
+		it("should switch to Traditional Chinese (zh-TW)", () => {
+			setLanguage("zh-TW");
+			expect(getCurrentLanguage()).toBe("zh-TW");
+			expect(t("cli.title")).toBe("Claude Trace");
+			expect(t("cli.description")).toContain("記錄你在開發專案時");
+		});
+
+		it("should switch to Simplified Chinese (zh-CN)", () => {
+			setLanguage("zh-CN");
+			expect(getCurrentLanguage()).toBe("zh-CN");
+			expect(t("cli.title")).toBe("Claude Trace");
+			expect(t("cli.description")).toContain("记录你在开发项目时");
+		});
+
 		it("should fallback to English for unsupported language", () => {
 			setLanguage("fr" as any);
 			expect(getCurrentLanguage()).toBe("en");
@@ -58,7 +72,7 @@ describe("i18n", () => {
 
 	describe("environment variable detection", () => {
 		it("should respect CLAUDE_TRACE_LANG environment variable", () => {
-			process.env.CLAUDE_TRACE_LANG = "es";
+			process.env["CLAUDE_TRACE_LANG"] = "es";
 			// Note: The environment variable detection happens during module initialization
 			// so we would need to reload the module to test this properly
 			// For now, we'll just test the setLanguage function
@@ -85,10 +99,10 @@ describe("i18n", () => {
 				"cli.errors.unexpectedError",
 				"cli.messages.startingClaude",
 				"cli.messages.claudeSessionCompleted",
-				"htmlGenerator.errors.frontendNotBuilt"
+				"htmlGenerator.errors.frontendNotBuilt",
 			];
 
-			requiredKeys.forEach(key => {
+			requiredKeys.forEach((key) => {
 				expect(t(key)).not.toBe(`[${key}]`);
 				expect(t(key)).toBeTruthy();
 			});

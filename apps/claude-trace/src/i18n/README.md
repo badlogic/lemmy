@@ -7,20 +7,27 @@ This directory contains the internationalization system for claude-trace.
 - **English (en)** - Default/Base language
 - **Spanish (es)** - Español
 - **Japanese (ja)** - 日本語
+- **Traditional Chinese (zh-TW)** - 繁體中文
+- **Simplified Chinese (zh-CN)** - 简体中文
 
 ## Usage
 
 ### Setting Language
 
 #### Environment Variable (Recommended)
+
 ```bash
-export CLAUDE_TRACE_LANG=es  # Spanish
-export CLAUDE_TRACE_LANG=ja  # Japanese
-export CLAUDE_TRACE_LANG=en  # English (default)
+export CLAUDE_TRACE_LANG=es     # Spanish
+export CLAUDE_TRACE_LANG=ja     # Japanese
+export CLAUDE_TRACE_LANG=zh-TW  # Traditional Chinese
+export CLAUDE_TRACE_LANG=zh-CN  # Simplified Chinese
+export CLAUDE_TRACE_LANG=en     # English (default)
 ```
 
 #### Automatic Detection
+
 If no explicit language is set, the system will try to detect from system locale:
+
 - `LANG`, `LANGUAGE`, or `LC_ALL` environment variables
 - Falls back to English if detection fails
 
@@ -50,16 +57,18 @@ All translation keys follow a nested structure:
 ```
 
 Access in code:
+
 ```typescript
 import { t } from "./i18n";
 
-console.log(t("cli.title"));                    // "Claude Trace"
-console.log(t("cli.errors.claudeNotFound"));    // "❌ Claude CLI not found in PATH"
+console.log(t("cli.title")); // "Claude Trace"
+console.log(t("cli.errors.claudeNotFound")); // "❌ Claude CLI not found in PATH"
 ```
 
 ## Development
 
 ### Validation
+
 ```bash
 npm run validate:translations
 ```
@@ -67,6 +76,7 @@ npm run validate:translations
 This checks that all languages have the same translation keys as English.
 
 ### Testing
+
 ```bash
 npm run test:i18n
 ```
@@ -86,7 +96,9 @@ src/i18n/
 ├── translations/
 │   ├── en.json                # English (base)
 │   ├── es.json                # Spanish
-│   └── ja.json                # Japanese
+│   ├── ja.json                # Japanese
+│   ├── zh-TW.json             # Traditional Chinese
+│   └── zh-CN.json             # Simplified Chinese
 ├── validate-translations.mjs  # Validation script
 └── README.md                  # This file
 ```

@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 
 // Supported languages
-export type SupportedLanguage = "en" | "es" | "ja";
+export type SupportedLanguage = "en" | "es" | "ja" | "zh-TW" | "zh-CN";
 
 // Translation keys interface for type safety
 export interface TranslationKeys {
@@ -73,8 +73,7 @@ class I18nManager {
 	}
 
 	private loadTranslations(): void {
-		const supportedLanguages: SupportedLanguage[] = ["en", "es", "ja"];
-		
+		const supportedLanguages: SupportedLanguage[] = ["en", "es", "ja", "zh-TW", "zh-CN"];
 		for (const lang of supportedLanguages) {
 			try {
 				const filePath = path.join(this.translationsDir, `${lang}.json`);
@@ -100,15 +99,22 @@ class I18nManager {
 
 		// Fall back to system locale detection
 		const systemLang = process.env.LANG || process.env.LANGUAGE || process.env.LC_ALL || "";
-		
 		if (systemLang.startsWith("es")) {
 			this.currentLanguage = "es";
 		} else if (systemLang.startsWith("ja")) {
 			this.currentLanguage = "ja";
+		} else if (systemLang.startsWith("zh_TW") || systemLang.startsWith("zh-Hant") || systemLang.startsWith("zh-TW")) {
+			this.currentLanguage = "zh-TW";
+		} else if (
+			systemLang.startsWith("zh_CN") ||
+			systemLang.startsWith("zh-Hans") ||
+			systemLang.startsWith("zh-CN") ||
+			systemLang.startsWith("zh")
+		) {
+			this.currentLanguage = "zh-CN";
 		} else {
 			this.currentLanguage = "en";
 		}
-
 		// Ensure we have translations for the detected language
 		if (!this.translations.has(this.currentLanguage)) {
 			this.currentLanguage = "en";
@@ -138,7 +144,7 @@ class I18nManager {
 	}
 
 	private getNestedValue(obj: any, path: string): string | undefined {
-		return path.split('.').reduce((current, key) => current?.[key], obj);
+		return path.split(".").reduce((current, key) => current?.[key], obj);
 	}
 
 	private getFallbackTranslation(key: string): string {
@@ -147,7 +153,7 @@ class I18nManager {
 			const value = this.getNestedValue(englishTranslations, key);
 			if (value) return value;
 		}
-		
+
 		// If all else fails, return the key itself
 		return `[${key}]`;
 	}

@@ -1,0 +1,55 @@
+{
+	"cli": {
+		"title": "Claude Trace",
+		"description": "記錄你在開發專案時與 Claude Code 的所有互動",
+		"usage": "用法:",
+		"options": "選項:",
+		"modes": "模式:",
+		"examples": "範例:",
+		"output": "輸出:",
+		"migration": "遷移說明:",
+		"help": {
+			"extractToken": "提取 OAuth 權杖並結束（重現 claude-token.py）",
+			"generateHtml": "從 JSONL 檔案產生 HTML 報告",
+			"index": "為 .claude-trace/ 目錄產生會話摘要與索引",
+			"runWith": "將所有後續參數傳給 Claude 程序",
+			"includeAllRequests": "包含所有 fetch 請求，否則只包含 context 有 2 條以上訊息的 v1/messages 請求",
+			"noOpen": "不要自動在瀏覽器開啟產生的 HTML 檔（配合 --generate-html 使用）",
+			"helpFlag": "顯示此說明訊息"
+		},
+		"modeLabels": {
+			"interactiveLogging": "互動記錄:",
+			"tokenExtraction": "權杖提取:",
+			"htmlGeneration": "HTML 產生:",
+			"indexing": "索引產生:"
+		},
+		"messages": {
+			"startingClaude": "🚀 Claude Trace\n啟動 Claude 並開始流量記錄",
+			"logsLocation": "📁 日誌將儲存於: .claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}",
+			"trafficLogger": "🔄 啟動流量記錄器...",
+			"claudeSessionCompleted": "✅ Claude 工作階段完成",
+			"claudeTerminated": "🔄 Claude 因訊號終止:",
+			"claudeExited": "⚠️  Claude 結束，代碼:",
+			"receivedSignal": "🔄 收到",
+			"shutdownMessage": "正在關閉...",
+			"openingBrowser": "🌐 正在開啟"
+		},
+		"errors": {
+			"claudeNotFound": "❌ 找不到 Claude CLI（PATH 未包含）",
+			"claudeLocalNotFound": "❌ 也檢查過本地安裝於:",
+			"installClaude": "❌ 請先安裝 Claude Code CLI",
+			"interceptorNotFound": "❌ 找不到攔截器載入器於:",
+			"errorStartingClaude": "❌ 啟動 Claude 發生錯誤:",
+			"unexpectedError": "❌ 發生非預期錯誤:",
+			"missingInputFile": "❌ --generate-html 缺少輸入檔案",
+			"usageGenerateHtml": "用法: claude-trace --generate-html input.jsonl [output.html]",
+			"tokenTimeout": "❌ 逾時：30 秒內未取得權杖",
+			"tokenNotFound": "❌ 找不到授權權杖"
+		}
+	},
+	"htmlGenerator": {
+		"errors": {
+			"frontendNotBuilt": "找不到前端 bundle 於 {bundlePath}。請先在 frontend 目錄執行 'npm run build'。"
+		}
+	}
+}
