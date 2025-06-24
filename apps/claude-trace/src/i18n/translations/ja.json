@@ -1,0 +1,55 @@
+{
+	"cli": {
+		"title": "Claude Trace",
+		"description": "プロジェクト開発中のClaude Codeとのやり取りをすべて記録します",
+		"usage": "使用方法:",
+		"options": "オプション:",
+		"modes": "モード:",
+		"examples": "例:",
+		"output": "出力:",
+		"migration": "移行:",
+		"help": {
+			"extractToken": "OAuthトークンを抽出して終了（claude-token.pyを再現）",
+			"generateHtml": "JSONLファイルからHTMLレポートを生成",
+			"index": ".claude-trace/ディレクトリの会話サマリーとインデックスを生成",
+			"runWith": "すべての後続引数をClaudeプロセスに渡す",
+			"includeAllRequests": "fetchを通じて行われたすべてのリクエストを含める、そうでなければコンテキストに2つ以上のメッセージがあるv1/messagesへのリクエストのみ",
+			"noOpen": "生成されたHTMLファイルをブラウザで開かない（--generate-htmlと併用）",
+			"helpFlag": "このヘルプメッセージを表示"
+		},
+		"modeLabels": {
+			"interactiveLogging": "インタラクティブログ:",
+			"tokenExtraction": "トークン抽出:",
+			"htmlGeneration": "HTML生成:",
+			"indexing": "インデックス作成:"
+		},
+		"messages": {
+			"startingClaude": "🚀 Claude Trace\nトラフィックログ付きでClaudeを開始",
+			"logsLocation": "📁 ログは次の場所に書き込まれます: .claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}",
+			"trafficLogger": "🔄 トラフィックロガーを開始しています...",
+			"claudeSessionCompleted": "✅ Claudeセッションが完了しました",
+			"claudeTerminated": "🔄 Claudeがシグナルによって終了されました:",
+			"claudeExited": "⚠️  Claudeがコードで終了しました:",
+			"receivedSignal": "🔄 受信",
+			"shutdownMessage": "シャットダウン中...",
+			"openingBrowser": "🌐 開いています"
+		},
+		"errors": {
+			"claudeNotFound": "❌ Claude CLIがPATHに見つかりません",
+			"claudeLocalNotFound": "❌ ローカルインストールも確認しました:",
+			"installClaude": "❌ 最初にClaude Code CLIをインストールしてください",
+			"interceptorNotFound": "❌ インターセプターローダーが見つかりません:",
+			"errorStartingClaude": "❌ Claude開始エラー:",
+			"unexpectedError": "❌ 予期しないエラー:",
+			"missingInputFile": "❌ --generate-htmlの入力ファイルがありません",
+			"usageGenerateHtml": "使用方法: claude-trace --generate-html input.jsonl [output.html]",
+			"tokenTimeout": "❌ タイムアウト: 30秒以内にトークンが見つかりませんでした",
+			"tokenNotFound": "❌ 認証トークンが見つかりません"
+		}
+	},
+	"htmlGenerator": {
+		"errors": {
+			"frontendNotBuilt": "フロントエンドバンドルが{bundlePath}に見つかりません。最初にfrontendディレクトリで'npm run build'を実行してください。"
+		}
+	}
+}

@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { RawPair, ClaudeData, HTMLGenerationData } from "./types";
+import { t } from "./i18n";
 
 export class HTMLGenerator {
 	private frontendDir: string;
@@ -16,7 +17,7 @@ export class HTMLGenerator {
 	private ensureFrontendBuilt(): void {
 		if (!fs.existsSync(this.bundlePath)) {
 			throw new Error(
-				`Frontend bundle not found at ${this.bundlePath}. ` + `Run 'npm run build' in frontend directory first.`,
+				t("htmlGenerator.errors.frontendNotBuilt").replace("{bundlePath}", this.bundlePath),
 			);
 		}
 	}
