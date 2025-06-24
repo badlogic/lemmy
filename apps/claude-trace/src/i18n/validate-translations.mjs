@@ -35,7 +35,9 @@ function validateTranslation(baseKeys, translationKeys) {
 }
 
 function main() {
-	const languages = ["en", "es", "ja"];
+	const languages = fs.readdirSync(translationsDir)
+		.filter(file => file.endsWith(".json"))
+		.map(file => path.basename(file, ".json"));
 	const results = {};
 	
 	// Load English as the reference
