@@ -84,7 +84,7 @@ export function createAnthropicSSE(askResult: AskResult, model: string): Readabl
 					writeEvent("content_block_start", {
 						type: "content_block_start",
 						index: blockIndex,
-						content_block: { type: "tool_use", id: toolCall.id, name: toolCall.name, input: {} },
+						content_block: { type: "tool_use", id: toolCall.id, name: toolCall.name, input: toolCall.arguments },
 					});
 					const argsJson = JSON.stringify(toolCall.arguments);
 					for (let i = 0; i < argsJson.length; i += 50) {

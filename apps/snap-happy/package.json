@@ -8,7 +8,7 @@
 		"snap-happy": "dist/index.js"
 	},
 	"scripts": {
-		"build": "tsc && chmod +x dist/index.js && cd native && make universal",
+		"build": "tsc && chmod +x dist/index.js && ([ \"$(uname)\" = \"Darwin\" ] && cd native && make universal || echo 'Skipping native build on non-macOS platform')",
 		"build:dev": "tsc && chmod +x dist/index.js && cd native && make dev",
 		"build:native": "cd native && make universal",
 		"build:native:dev": "cd native && make dev",

@@ -12,7 +12,7 @@ import {
 import { transformAnthropicToLemmy } from "./transforms/anthropic-to-lemmy.js";
 import { createAnthropicSSE } from "./transforms/lemmy-to-anthropic.js";
 import { jsonSchemaToZod } from "./transforms/tool-schemas.js";
-import type { MessageCreateParamsBase } from "@anthropic-ai/sdk/resources/messages/messages.js";
+import type { MessageCreateParamsBase, ThinkingConfigEnabled } from "@anthropic-ai/sdk/resources/messages/messages.js";
 import {
 	Context,
 	type AskResult,
@@ -31,7 +31,6 @@ import { parseSSE, extractAssistantFromSSE } from "./utils/sse.js";
 import {
 	parseAnthropicMessageCreateRequest,
 	parseResponse,
-	isAnthropicAPI,
 	generateRequestId,
 	type ParsedRequestData,
 } from "./utils/request-parser.js";
@@ -233,7 +232,16 @@ export class ClaudeBridgeInterceptor {
 			}
 
 			// Convert thinking parameters for provider
-			const askOptions = convertThinkingParameters(this.clientInfo.provider, originalRequest);
+			this.logger.log(`Original thinking config: ${JSON.stringify(originalRequest.thinking)}`);
+			const askOptions: any = {
+				...(originalRequest.thinking?.type === "enabled" && {
+					thinking: {
+						type: "enabled",
+						budget_tokens: originalRequest.thinking.budget_tokens,
+					} as ThinkingConfigEnabled,
+				}),
+			};
+			this.logger.log(`Converted thinking config: ${JSON.stringify(askOptions.thinking)}`);
 
 			// Apply capability adjustments
 			if (validation.adjustments.maxOutputTokens) {
@@ -455,4 +463,11 @@ export async function initializeInterceptor(config?: BridgeConfig): Promise<Clau
 
 export function getInterceptor(): ClaudeBridgeInterceptor | null {
 	return globalInterceptor;
+}
+
+/**
+ * Check if URL is an Anthropic API endpoint
+ */
+export function isAnthropicAPI(url: string): boolean {
+	return url.includes("api.anthropic.com") && url.includes("/v1/messages");
 }

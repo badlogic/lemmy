@@ -174,6 +174,7 @@ export const AnthropicModelData = {
 export type OpenAIModels =
 	| "babbage-002"
 	| "chatgpt-4o-latest"
+	| "claude-opus-4-20250514"
 	| "codex-mini-latest"
 	| "computer-use-preview"
 	| "computer-use-preview-2025-03-11"
@@ -263,6 +264,16 @@ export const OpenAIModelData = {
 		pricing: {
 			inputPerMillion: 5,
 			outputPerMillion: 15,
+		},
+	},
+	"claude-opus-4-20250514": {
+		contextWindow: 200000,
+		maxOutputTokens: 32000,
+		supportsTools: true,
+		supportsImageInput: true,
+		pricing: {
+			inputPerMillion: 15,
+			outputPerMillion: 75,
 		},
 	},
 	"codex-mini-latest": {
@@ -1492,10 +1503,10 @@ export const ModelToProvider = {
 	"claude-3-opus-20240229": "anthropic",
 	"claude-3-opus-latest": "anthropic",
 	"claude-3-sonnet-20240229": "anthropic",
-	"claude-opus-4-20250514": "anthropic",
 	"claude-sonnet-4-20250514": "anthropic",
 	"babbage-002": "openai",
 	"chatgpt-4o-latest": "openai",
+	"claude-opus-4-20250514": "openai",
 	"codex-mini-latest": "openai",
 	"computer-use-preview": "openai",
 	"computer-use-preview-2025-03-11": "openai",

@@ -1,6 +1,6 @@
 {
 	"name": "@mariozechner/claude-bridge",
-	"version": "1.0.10",
+	"version": "1.0.14",
 	"description": "Use non-Anthropic models with Claude Code by proxying requests through the lemmy unified interface",
 	"type": "module",
 	"main": "dist/index.js",

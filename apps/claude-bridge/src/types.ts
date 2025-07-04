@@ -1,5 +1,5 @@
 import type { SerializedContext, ChatClient } from "@mariozechner/lemmy";
-import type { MessageCreateParamsBase } from "@anthropic-ai/sdk/resources/messages/messages.js";
+import type { MessageCreateParamsBase, ThinkingConfigEnabled } from "@anthropic-ai/sdk/resources/messages/messages.js";
 import type { AnthropicConfig, OpenAIConfig, GoogleConfig } from "@mariozechner/lemmy";
 import type { ModelData } from "@mariozechner/lemmy";
 
@@ -24,7 +24,7 @@ export interface RawPair {
 	note?: string;
 }
 
-export type Provider = "anthropic" | "openai" | "google";
+export type Provider = "anthropic" | "openai" | "google" | "proxy";
 
 // JSON Schema types
 export interface JSONSchema {
@@ -73,7 +73,7 @@ export interface ProviderClientInfo {
 	modelData: ModelData | null; // null for unknown models
 }
 
-export type ProviderConfig = AnthropicConfig | OpenAIConfig | GoogleConfig;
+export type ProviderConfig = AnthropicConfig | OpenAIConfig | GoogleConfig | OpenAIConfig; // Proxy uses OpenAI config
 
 export interface TransformationEntry {
 	timestamp: number;
