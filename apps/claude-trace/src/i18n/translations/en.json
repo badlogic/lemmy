@@ -1,0 +1,55 @@
+{
+	"cli": {
+		"title": "Claude Trace",
+		"description": "Record all your interactions with Claude Code as you develop your projects",
+		"usage": "USAGE:",
+		"options": "OPTIONS:",
+		"modes": "MODES:",
+		"examples": "EXAMPLES:",
+		"output": "OUTPUT:",
+		"migration": "MIGRATION:",
+		"help": {
+			"extractToken": "Extract OAuth token and exit (reproduces claude-token.py)",
+			"generateHtml": "Generate HTML report from JSONL file",
+			"index": "Generate conversation summaries and index for .claude-trace/ directory",
+			"runWith": "Pass all following arguments to Claude process",
+			"includeAllRequests": "Include all requests made through fetch, otherwise only requests to v1/messages with more than 2 messages in the context",
+			"noOpen": "Don't open generated HTML file in browser (works with --generate-html)",
+			"helpFlag": "Show this help message"
+		},
+		"modeLabels": {
+			"interactiveLogging": "Interactive logging:",
+			"tokenExtraction": "Token extraction:",
+			"htmlGeneration": "HTML generation:",
+			"indexing": "Indexing:"
+		},
+		"messages": {
+			"startingClaude": "🚀 Claude Trace\nStarting Claude with traffic logging",
+			"logsLocation": "📁 Logs will be written to: .claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}",
+			"trafficLogger": "🔄 Starting traffic logger...",
+			"claudeSessionCompleted": "✅ Claude session completed",
+			"claudeTerminated": "🔄 Claude terminated by signal:",
+			"claudeExited": "⚠️  Claude exited with code:",
+			"receivedSignal": "🔄 Received",
+			"shutdownMessage": "shutting down...",
+			"openingBrowser": "🌐 Opening"
+		},
+		"errors": {
+			"claudeNotFound": "❌ Claude CLI not found in PATH",
+			"claudeLocalNotFound": "❌ Also checked for local installation at:",
+			"installClaude": "❌ Please install Claude Code CLI first",
+			"interceptorNotFound": "❌ Interceptor loader not found at:",
+			"errorStartingClaude": "❌ Error starting Claude:",
+			"unexpectedError": "❌ Unexpected error:",
+			"missingInputFile": "❌ Missing input file for --generate-html",
+			"usageGenerateHtml": "Usage: claude-trace --generate-html input.jsonl [output.html]",
+			"tokenTimeout": "❌ Timeout: No token found within 30 seconds",
+			"tokenNotFound": "❌ No authorization token found"
+		}
+	},
+	"htmlGenerator": {
+		"errors": {
+			"frontendNotBuilt": "Frontend bundle not found at {bundlePath}. Run 'npm run build' in frontend directory first."
+		}
+	}
+}

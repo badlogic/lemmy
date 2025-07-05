@@ -7,16 +7,18 @@
 		"claude-trace": "dist/cli.js"
 	},
 	"scripts": {
-		"build": "tsc && cp src/interceptor-loader.js src/token-extractor.js dist/ && npm run build:frontend",
+		"build": "npm run validate:translations && tsc && cp src/interceptor-loader.js src/token-extractor.js dist/ && cp -r src/i18n/translations dist/i18n/ && npm run build:frontend",
 		"build:frontend": "cd frontend && npm run build",
 		"dev": "concurrently \"npm run dev:core\" \"npm run dev:copy\" \"npm run dev:frontend\"",
 		"dev:core": "tsc --watch --preserveWatchOutput",
-		"dev:copy": "nodemon --watch src/interceptor-loader.js --watch src/token-extractor.js --exec 'mkdir -p dist && cp src/interceptor-loader.js src/token-extractor.js dist/'",
+		"dev:copy": "nodemon --watch src/interceptor-loader.js --watch src/token-extractor.js --exec 'mkdir -p dist && cp src/interceptor-loader.js src/token-extractor.js dist/ && mkdir -p dist/i18n && cp -r src/i18n/translations dist/i18n/'",
 		"dev:frontend": "cd frontend && npm run dev",
 		"clean": "rm -rf dist",
 		"prepublishOnly": "npm run clean && npm run build",
 		"test": "node --require ./dist/interceptor.js echo 'test'",
 		"test:generate": "npx tsx src/cli test/test-traffic.jsonl test/index.html",
+		"test:i18n": "npx vitest run test/i18n.test.ts",
+		"validate:translations": "node src/i18n/validate-translations.mjs",
 		"typecheck": "tsc --noEmit"
 	},
 	"files": [
