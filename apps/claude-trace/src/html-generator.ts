@@ -30,8 +30,12 @@ export class HTMLGenerator {
 		return { htmlTemplate, jsBundle };
 	}
 
-	private filterV1MessagesPairs(pairs: RawPair[]): RawPair[] {
-		return pairs.filter((pair) => pair.request.url.includes("/v1/messages"));
+	private filterClaudeAPIPairs(pairs: RawPair[]): RawPair[] {
+		return pairs.filter((pair) => {
+			const url = pair.request.url;
+			// Include both Anthropic API and Bedrock API calls
+			return url.includes("/v1/messages") || url.includes("bedrock-runtime.amazonaws.com");
+		});
 	}
 
 	private filterShortConversations(pairs: RawPair[]): RawPair[] {
@@ -80,8 +84,8 @@ export class HTMLGenerator {
 			let filteredPairs = pairs;
 
 			if (!options.includeAllRequests) {
-				// Filter to only include v1/messages pairs with messages.length >= 2
-				filteredPairs = this.filterV1MessagesPairs(pairs);
+				// Filter to only include Claude API pairs with messages.length >= 2
+				filteredPairs = this.filterClaudeAPIPairs(pairs);
 				filteredPairs = this.filterShortConversations(filteredPairs);
 			}
 

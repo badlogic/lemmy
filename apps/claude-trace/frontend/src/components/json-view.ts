@@ -1,6 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { ProcessedPair } from "../utils/data";
+import { ProcessedPair } from "../../../src/shared-conversation-processor";
 
 @customElement("json-view")
 export class JsonView extends LitElement {

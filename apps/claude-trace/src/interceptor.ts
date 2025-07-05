@@ -46,15 +46,22 @@ export class ClaudeTrafficLogger {
 		fs.writeFileSync(this.logFile, "");
 	}
 
-	private isAnthropicAPI(url: string | URL): boolean {
+	private isClaudeAPI(url: string | URL): boolean {
 		const urlString = typeof url === "string" ? url : url.toString();
 		const includeAllRequests = process.env.CLAUDE_TRACE_INCLUDE_ALL_REQUESTS === "true";
 
+		// Check for AWS Bedrock Claude API calls
+		const isBedrockAPI = urlString.includes("bedrock-runtime.") && urlString.includes(".amazonaws.com");
+
+		// Check for direct Anthropic API calls
+		const isAnthropicAPI = urlString.includes("api.anthropic.com");
+
 		if (includeAllRequests) {
-			return urlString.includes("api.anthropic.com"); // Capture all Anthropic API requests
+			return isAnthropicAPI || isBedrockAPI; // Capture all Claude API requests
 		}
 
-		return urlString.includes("api.anthropic.com") && urlString.includes("/v1/messages");
+		// For filtered mode, include Anthropic /v1/messages and all Bedrock calls
+		return (isAnthropicAPI && urlString.includes("/v1/messages")) || isBedrockAPI;
 	}
 
 	private generateRequestId(): string {
@@ -167,8 +174,8 @@ export class ClaudeTrafficLogger {
 			// Convert input to URL for consistency
 			const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
-			// Only intercept Anthropic API calls
-			if (!logger.isAnthropicAPI(url)) {
+			// Only intercept Claude API calls
+			if (!logger.isClaudeAPI(url)) {
 				return originalFetch(input, init);
 			}
 
@@ -289,7 +296,7 @@ export class ClaudeTrafficLogger {
 		// Parse URL from options
 		const url = this.parseNodeRequestURL(options, isHttps);
 
-		if (!this.isAnthropicAPI(url)) {
+		if (!this.isClaudeAPI(url)) {
 			return originalRequest.call(this, options, callback);
 		}
 

@@ -106,7 +106,37 @@ ${this.formatJson(pair.response!.events)}</pre
 	}
 
 	private getModelName(pair: RawPair): string {
-		return pair.request.body?.model || "unknown";
+		// Try to extract from Bedrock URL first
+		if (pair.request.url && pair.request.url.includes("bedrock-runtime")) {
+			const urlMatch = pair.request.url.match(/\/model\/([^\/]+)/);
+			if (urlMatch && urlMatch[1]) {
+				return this.normalizeModelName(urlMatch[1]);
+			}
+		}
+
+		// Try to get model from request body
+		if (pair.request.body && pair.request.body.model) {
+			return this.normalizeModelName(pair.request.body.model);
+		}
+
+		// Default fallback
+		return "unknown";
+	}
+
+	private normalizeModelName(modelName: string): string {
+		if (!modelName) return "unknown";
+
+		// Handle Bedrock model names
+		if (modelName.startsWith("us.anthropic.")) {
+			// Convert "us.anthropic.claude-3-5-sonnet-20241022-v1:0" to "claude-3-5-sonnet-20241022"
+			const match = modelName.match(/us\.anthropic\.([^:]+)/);
+			if (match && match[1]) {
+				return match[1];
+			}
+		}
+
+		// Return as-is for other formats
+		return modelName;
 	}
 
 	private formatJson(obj: any): string {
