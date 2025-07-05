@@ -50,11 +50,15 @@ export class ClaudeTrafficLogger {
 		const urlString = typeof url === "string" ? url : url.toString();
 		const includeAllRequests = process.env.CLAUDE_TRACE_INCLUDE_ALL_REQUESTS === "true";
 
+		// Support custom ANTHROPIC_BASE_URL
+      		const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+      		const apiHost = new URL(baseUrl).hostname;
+		
 		if (includeAllRequests) {
-			return urlString.includes("api.anthropic.com"); // Capture all Anthropic API requests
+			return urlString.includes(apiHost); // Capture all Anthropic API requests
 		}
 
-		return urlString.includes("api.anthropic.com") && urlString.includes("/v1/messages");
+		return urlString.includes(apiHost) && urlString.includes("/v1/messages");
 	}
 
 	private generateRequestId(): string {
