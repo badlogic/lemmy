@@ -1,16 +1,17 @@
 import type {
     ContentBlock,
-        ContentBlockParam,
-        Message,
-        MessageCreateParams,
-        MessageParam,
-        RawMessageStreamEvent,
-        TextBlock,
-        TextBlockParam,
-        ToolResultBlockParam,
-        ToolUseBlock as ToolUseBlockType,
+    ContentBlockParam,
+    Message,
+    MessageCreateParams,
+    MessageParam,
+    RawMessageStreamEvent,
+    TextBlock,
+    TextBlockParam,
+    ToolResultBlockParam,
+    ThinkingBlock,
+    ToolUseBlock as ToolUseBlockType,
 } from "@anthropic-ai/sdk/resources/messages";
-import type { RawPair } from "./types";
+import type { RawPair, BedrockInvocationMetrics } from "./types";
 
 // Core interfaces for processed data
 export interface ProcessedPair {
@@ -20,6 +21,8 @@ export interface ProcessedPair {
     response: Message;
     model: string;
     isStreaming: boolean;
+    rawStreamData?: string; // Raw SSE/body_raw data for debugging
+    streamFormat?: "standard" | "bedrock" | null; // Detected stream format
 }
 
 // Extended message type with tool result pairing
@@ -51,54 +54,219 @@ export interface SimpleConversation {
  * Shared conversation processing functionality for both frontend and backend
  */
 export class SharedConversationProcessor {
-	/**
-	 * Process raw JSONL pairs into ProcessedPairs
-	 */
+    /**
+     * Process raw JSONL pairs into ProcessedPairs
+     */
     processRawPairs(rawPairs: RawPair[]): ProcessedPair[] {
+        if (!rawPairs || rawPairs.length === 0) {
+            return [];
+        }
+
         const processedPairs: ProcessedPair[] = [];
 
-        for (const pair of rawPairs) {
-            if (!pair.request || !pair.response) continue;
-
-            // Detect streaming
-            const isStreaming = !!pair.response.body_raw;
-            let response: Message;
-
-            if (isStreaming && pair.response.body_raw) {
-                // Parse streaming response
-                response = this.parseStreamingResponse(pair.response.body_raw);
-            } else if (pair.response.body) {
-                response = pair.response.body as Message;
-            } else {
+        for (let i = 0; i < rawPairs.length; i++) {
+            const pair = rawPairs[i];
+            if (!pair?.request || !pair?.response) {
                 continue;
             }
 
-            // Extract model from request headers or URL
-            const model = this.extractModel(pair);
+            try {
+                // Detect streaming
+                const isStreaming = !!pair.response.body_raw;
+                let response: Message;
+                let streamFormat: "standard" | "bedrock" | null = null;
 
-            processedPairs.push({
-                id: `${pair.request.timestamp || Date.now()}_${Math.random()}`,
-                timestamp: new Date((pair.request.timestamp || Date.now()) * 1000).toISOString(),
-                request: pair.request.body as MessageCreateParams,
-                response,
-                model,
-                isStreaming,
-            });
+                if (pair.response.body_raw) {
+                    // Parse streaming response and detect format
+                    streamFormat = this.isBedrockResponse(pair.response.body_raw) ? "bedrock" : "standard";
+                    response = this.parseStreamingResponse(pair.response.body_raw);
+                } else if (pair.response.body) {
+                    response = pair.response.body as Message;
+                } else {
+                    continue;
+                }
+
+                // Extract model from request headers or URL
+                const model = this.extractModel(pair);
+
+                processedPairs.push({
+                    id: `${pair.request.timestamp || Date.now()}_${Math.random()}`,
+                    timestamp: new Date((pair.request.timestamp || Date.now()) * 1000).toISOString(),
+                    request: pair.request.body as MessageCreateParams,
+                    response,
+                    model,
+                    isStreaming,
+                    rawStreamData: pair.response.body_raw,
+                    streamFormat,
+                });
+            } catch (error) {
+                console.warn(`Failed to process raw pair at index ${i}:`, error);
+                // Continue processing other pairs
+            }
         }
 
         return processedPairs;
     }
 
-	/**
-	 * Parse streaming response from raw SSE data
-	 */
+    /**
+     * Detect if the response is from Bedrock by checking for binary event stream format
+     */
+    private isBedrockResponse(bodyRaw: string): boolean {
+        // Check for AWS EventStream format with binary headers and base64 encoded events
+        return bodyRaw.startsWith("\u0000\u0000");
+    }
+
+    /**
+     * Parse Bedrock binary event stream and extract the standard message events
+     */
+    private parseBedrockStreamingResponse(bodyRaw: string): Message {
+        if (!bodyRaw || bodyRaw.length === 0) {
+            throw new Error("Empty bodyRaw provided to parseBedrockStreamingResponse");
+        }
+
+        const events: RawMessageStreamEvent[] = [];
+        let bedrockMetrics: BedrockInvocationMetrics | null = null;
+
+        try {
+            // Extract JSON payloads from AWS EventStream format
+            // The format contains binary headers followed by JSON payloads
+            const jsonChunks = this.extractJsonChunksFromEventStream(bodyRaw);
+
+            for (const jsonChunk of jsonChunks) {
+                try {
+                    const eventPayload = JSON.parse(jsonChunk);
+
+                    // Check if this is an event with base64-encoded bytes
+                    if (eventPayload.bytes) {
+                        const base64Data = eventPayload.bytes;
+                        const decodedJson = this.decodeBase64ToUtf8(base64Data);
+                        const event = JSON.parse(decodedJson) as RawMessageStreamEvent;
+                        events.push(event);
+                    }
+                } catch (chunkError) {
+                    console.warn("Failed to parse JSON chunk:", jsonChunk, chunkError);
+                    // Continue with other chunks
+                }
+            }
+
+            // Extract Bedrock metrics from the last event if present
+            bedrockMetrics = this.extractBedrockMetrics(bodyRaw);
+        } catch (error) {
+            console.error("Failed to parse Bedrock streaming response:", error);
+            throw new Error(`Bedrock streaming response parsing failed: ${error}`);
+        }
+
+        return this.buildMessageFromEvents(events, bedrockMetrics);
+    }
+
+    /**
+     * Decode base64 string to UTF-8, compatible with both browser and Node.js environments
+     */
+    private decodeBase64ToUtf8(base64Data: string): string {
+        // Check if we're in a browser environment
+        if (typeof window !== "undefined" && typeof atob !== "undefined") {
+            // Browser environment - use atob()
+            return atob(base64Data);
+        } else if (typeof Buffer !== "undefined") {
+            // Node.js environment - use Buffer
+            return Buffer.from(base64Data, "base64").toString("utf-8");
+        } else {
+            // Fallback implementation for environments without either
+            throw new Error("Base64 decoding not supported in this environment");
+        }
+    }
+
+    /**
+     * Extract JSON chunks from AWS EventStream binary format
+     */
+    private extractJsonChunksFromEventStream(bodyRaw: string): string[] {
+        if (!bodyRaw || bodyRaw.length === 0) {
+            return [];
+        }
+
+        const jsonChunks: string[] = [];
+        const pattern = 'event{"bytes":';
+
+        let searchIndex = 0;
+
+        while (searchIndex < bodyRaw.length) {
+            // Find the next occurrence of the pattern
+            const patternIndex = bodyRaw.indexOf(pattern, searchIndex);
+            if (patternIndex === -1) {
+                break; // No more patterns found
+            }
+
+            // Start extracting JSON from the '{' after 'event'
+            const jsonStartIndex = patternIndex + 5; // Skip 'event' prefix
+            let braceCount = 0;
+            let jsonEndIndex = -1;
+
+            // Find the matching closing brace
+            for (let i = jsonStartIndex; i < bodyRaw.length; i++) {
+                const char = bodyRaw[i];
+
+                if (char === "{") {
+                    braceCount++;
+                } else if (char === "}") {
+                    braceCount--;
+                    if (braceCount === 0) {
+                        jsonEndIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            // Extract the JSON chunk if we found a complete object
+            if (jsonEndIndex !== -1) {
+                const jsonChunk = bodyRaw.substring(jsonStartIndex, jsonEndIndex + 1);
+                jsonChunks.push(jsonChunk);
+                searchIndex = jsonEndIndex + 1;
+            } else {
+                // No matching brace found, move past this pattern
+                searchIndex = patternIndex + pattern.length;
+            }
+        }
+
+        return jsonChunks;
+    }
+
+    /**
+     * Extract Bedrock invocation metrics from the response
+     */
+    private extractBedrockMetrics(bodyRaw: string): BedrockInvocationMetrics | null {
+        try {
+            // Look for the amazon-bedrock-invocationMetrics in the last decoded event
+            const metricsMatch = bodyRaw.match(/"amazon-bedrock-invocationMetrics":\s*(\{[^}]+\})/);
+            if (metricsMatch && metricsMatch[1]) {
+                return JSON.parse(metricsMatch[1]) as BedrockInvocationMetrics;
+            }
+        } catch (e) {
+            // Skip invalid metrics
+        }
+        return null;
+    }
+
+    /**
+     * Parse streaming response from raw SSE data
+     */
     private parseStreamingResponse(bodyRaw: string): Message {
+        if (this.isBedrockResponse(bodyRaw)) {
+            return this.parseBedrockStreamingResponse(bodyRaw);
+        } else {
+            return this.parseStandardStreamingResponse(bodyRaw);
+        }
+    }
+
+    /**
+     * Parse standard Anthropic API streaming response
+     */
+    private parseStandardStreamingResponse(bodyRaw: string): Message {
+        if (!bodyRaw || bodyRaw.length === 0) {
+            throw new Error("Empty bodyRaw provided to parseStandardStreamingResponse");
+        }
+
         const lines = bodyRaw.split("\n");
-        const content: ContentBlock[] = [];
-        let usage: any = null;
-        let model = "";
-        let id = "";
-        let role: "assistant" = "assistant";
+        const events: RawMessageStreamEvent[] = [];
 
         for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
@@ -108,61 +276,217 @@ export class SharedConversationProcessor {
 
             try {
                 const event = JSON.parse(data) as RawMessageStreamEvent;
-
-                if (event.type === "message_start") {
-                    model = event.message.model;
-                    id = event.message.id;
-                    role = event.message.role;
-                } else if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-                    // Find or create text block
-                    const index = event.index;
-                    if (!content[index]) {
-                        content[index] = { type: "text", text: "" } as TextBlock;
-                    }
-                    if (content[index].type === "text") {
-                        (content[index] as TextBlock).text += event.delta.text;
-                    }
-                } else if (event.type === "message_delta") {
-                    usage = event.usage;
-                }
+                events.push(event);
             } catch (e) {
+                console.warn("Failed to parse SSE event:", data, e);
                 // Skip invalid JSON
             }
         }
 
-        return {
-            id,
-            model,
-            role,
-            content,
-            usage,
-            type: "message",
-            stop_reason: "end_turn",
-            stop_sequence: null,
-        } as Message;
+        return this.buildMessageFromEvents(events);
     }
 
-	/**
-	 * Extract model name from the raw pair
-	 */
+    /**
+     * Build a Message object from a list of streaming events
+     */
+    private buildMessageFromEvents(
+        events: RawMessageStreamEvent[],
+        bedrockMetrics?: BedrockInvocationMetrics | null,
+    ): Message {
+        // Initialize with defaults
+        let message: Partial<Message> = {
+            id: "",
+            type: "message",
+            role: "assistant",
+            content: [],
+            model: "",
+            stop_reason: null,
+            stop_sequence: null,
+            usage: {
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_creation_input_tokens: null,
+                cache_read_input_tokens: null,
+                server_tool_use: null,
+                service_tier: null,
+            },
+        };
+
+        // Track content blocks being built
+        const contentBlocks: ContentBlock[] = [];
+        let currentBlockIndex = -1;
+
+        for (const event of events) {
+            switch (event.type) {
+                case "message_start":
+                    // Initialize message with base structure
+                    message = { ...message, ...event.message };
+                    break;
+
+                case "content_block_start":
+                    // Start a new content block
+                    currentBlockIndex = event.index;
+                    contentBlocks[currentBlockIndex] = { ...event.content_block };
+                    break;
+
+                case "content_block_delta":
+                    // Update the current content block
+                    if (currentBlockIndex >= 0 && contentBlocks[currentBlockIndex]) {
+                        const block = contentBlocks[currentBlockIndex];
+                        const delta = event.delta;
+
+                        switch (delta.type) {
+                            case "text_delta":
+                                if (block.type === "text") {
+                                    (block as TextBlock).text = ((block as TextBlock).text || "") + delta.text;
+                                }
+                                break;
+
+                            case "input_json_delta":
+                                if (block.type === "tool_use") {
+                                    // Accumulate JSON string for tool_use blocks
+                                    const toolBlock = block as ToolUseBlockType;
+                                    if (typeof toolBlock.input === "string") {
+                                        toolBlock.input = toolBlock.input + delta.partial_json;
+                                    } else {
+                                        // Initialize as string if not already
+                                        (toolBlock.input as any) = delta.partial_json;
+                                    }
+                                }
+                                break;
+
+                            case "thinking_delta":
+                                if (block.type === "thinking") {
+                                    (block as ThinkingBlock).thinking =
+                                        ((block as ThinkingBlock).thinking || "") + delta.thinking;
+                                }
+                                break;
+
+                            case "signature_delta":
+                                if (block.type === "thinking") {
+                                    (block as ThinkingBlock).signature =
+                                        ((block as ThinkingBlock).signature || "") + delta.signature;
+                                }
+                                break;
+
+                            case "citations_delta":
+                                // Handle citations delta if needed
+                                break;
+                        }
+                    }
+                    break;
+
+                case "content_block_stop":
+                    // Finalize content block
+                    if (currentBlockIndex >= 0 && contentBlocks[currentBlockIndex]) {
+                        const block = contentBlocks[currentBlockIndex];
+                        // Parse JSON input if it's a tool_use block
+                        if (block.type === "tool_use") {
+                            const toolBlock = block as ToolUseBlockType;
+                            if (typeof toolBlock.input === "string") {
+                                try {
+                                    toolBlock.input = JSON.parse(toolBlock.input);
+                                } catch (e) {
+                                    // Keep as string if JSON parsing fails
+                                    console.warn("Failed to parse tool input JSON:", toolBlock.input);
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case "message_delta":
+                    // Update message-level fields
+                    if (event.delta.stop_reason) {
+                        message.stop_reason = event.delta.stop_reason;
+                    }
+                    if (event.delta.stop_sequence) {
+                        message.stop_sequence = event.delta.stop_sequence;
+                    }
+                    if (event.usage) {
+                        // Preserve existing input_tokens if not provided in this delta
+                        // Input tokens are typically only sent once and shouldn't change
+                        const currentInputTokens = message.usage?.input_tokens ?? 0;
+
+                        message.usage = {
+                            input_tokens: event.usage.input_tokens ?? currentInputTokens,
+                            output_tokens: event.usage.output_tokens ?? message.usage?.output_tokens ?? 0,
+                            cache_creation_input_tokens:
+                                event.usage.cache_creation_input_tokens ?? message.usage?.cache_creation_input_tokens ?? null,
+                            cache_read_input_tokens:
+                                event.usage.cache_read_input_tokens ?? message.usage?.cache_read_input_tokens ?? null,
+                            server_tool_use: event.usage.server_tool_use ?? message.usage?.server_tool_use ?? null,
+                            service_tier: null, // MessageDeltaUsage doesn't have service_tier
+                        };
+                    }
+                    break;
+
+                case "message_stop":
+                    // Finalize message
+                    break;
+            }
+        }
+
+        // Set the final content blocks
+        message.content = contentBlocks.filter((block) => block != null);
+
+        // If we have bedrock metrics, merge them into usage
+        if (bedrockMetrics && message.usage) {
+            message.usage.input_tokens = bedrockMetrics.inputTokenCount;
+            message.usage.output_tokens = bedrockMetrics.outputTokenCount;
+        }
+
+        return message as Message;
+    }
+
+    /**
+     * Extract model name from the raw pair
+     */
     private extractModel(pair: RawPair): string {
+        // Try to extract from Bedrock URL
+        if (pair.request?.url && pair.request.url.includes("bedrock-runtime")) {
+            const urlMatch = pair.request.url.match(/\/model\/([^\/]+)/);
+            if (urlMatch && urlMatch[1]) {
+                return this.normalizeModelName(urlMatch[1]);
+            }
+        }
+
         // Try to get model from request body
-        if (pair.request ?.body && typeof pair.request.body === "object" && "model" in pair.request.body) {
-            return (pair.request.body as any).model;
+        if (pair.request?.body && typeof pair.request.body === "object" && "model" in pair.request.body) {
+            return this.normalizeModelName((pair.request.body as any).model);
         }
 
         // Try to get from response
-        if (pair.response ?.body && typeof pair.response.body === "object" && "model" in pair.response.body) {
-            return (pair.response.body as any).model;
+        if (pair.response?.body && typeof pair.response.body === "object" && "model" in pair.response.body) {
+            return this.normalizeModelName((pair.response.body as any).model);
         }
 
         // Default
         return "unknown";
     }
 
-	/**
-	 * Group processed pairs into conversations
-	 */
+    /**
+     * Normalize model names from different formats to a consistent display format
+     */
+    private normalizeModelName(modelName: string): string {
+        if (!modelName) return "unknown";
+
+        // Handle Bedrock model names
+        if (modelName.startsWith("us.anthropic.")) {
+            // Convert "us.anthropic.claude-3-5-sonnet-20241022-v1:0" to "claude-3-5-sonnet-20241022"
+            const match = modelName.match(/us\.anthropic\.([^:]+)/);
+            if (match && match[1]) {
+                return match[1];
+            }
+        }
+
+        // Return as-is for other formats
+        return modelName;
+    }
+
+    /**
+     * Group processed pairs into conversations
+     */
     mergeConversations(
         pairs: ProcessedPair[],
         options: { includeShortConversations?: boolean } = {},
@@ -235,10 +559,10 @@ export class SharedConversationProcessor {
                         startTime: sortedThreadPairs[0].timestamp,
                         endTime: finalPair.timestamp,
                         totalPairs: sortedThreadPairs.length,
-                        inputTokens: finalPair.response.usage ?.input_tokens || 0,
-                        outputTokens: finalPair.response.usage ?.output_tokens || 0,
+                        inputTokens: finalPair.response.usage?.input_tokens || 0,
+                        outputTokens: finalPair.response.usage?.output_tokens || 0,
                         totalTokens:
-                            (finalPair.response.usage ?.input_tokens || 0) + (finalPair.response.usage ?.output_tokens || 0),
+                            (finalPair.response.usage?.input_tokens || 0) + (finalPair.response.usage?.output_tokens || 0),
                     },
                 };
 
@@ -260,9 +584,9 @@ export class SharedConversationProcessor {
         );
     }
 
-	/**
-	 * Process messages to pair tool_use with tool_result
-	 */
+    /**
+     * Process messages to pair tool_use with tool_result
+     */
     private processToolResults(messages: MessageParam[]): EnhancedMessageParam[] {
         const enhancedMessages: EnhancedMessageParam[] = [];
         const pendingToolUses: Record<string, { messageIndex: number; toolIndex: number }> = {};
@@ -313,9 +637,9 @@ export class SharedConversationProcessor {
         return enhancedMessages;
     }
 
-	/**
-	 * Detect and merge compact conversations
-	 */
+    /**
+     * Detect and merge compact conversations
+     */
     private detectAndMergeCompactConversations(conversations: SimpleConversation[]): SimpleConversation[] {
         if (conversations.length <= 1) return conversations;
 
@@ -388,9 +712,9 @@ export class SharedConversationProcessor {
         );
     }
 
-	/**
-	 * Merge a compact conversation with its original counterpart
-	 */
+    /**
+     * Merge a compact conversation with its original counterpart
+     */
     private mergeCompactConversation(
         originalConv: SimpleConversation,
         compactConv: SimpleConversation,
@@ -431,9 +755,9 @@ export class SharedConversationProcessor {
         };
     }
 
-	/**
-	 * Compare two messages to see if they're roughly equal
-	 */
+    /**
+     * Compare two messages to see if they're roughly equal
+     */
     private messagesRoughlyEqual(msg1: MessageParam, msg2: MessageParam): boolean {
         if (msg1.role !== msg2.role) return false;
 
@@ -446,9 +770,9 @@ export class SharedConversationProcessor {
         return true;
     }
 
-	/**
-	 * Normalize message for grouping (removes dynamic content)
-	 */
+    /**
+     * Normalize message for grouping (removes dynamic content)
+     */
     private normalizeMessageForGrouping(message: MessageParam): MessageParam {
         if (!message || !message.content) return message;
 
@@ -475,9 +799,9 @@ export class SharedConversationProcessor {
         };
     }
 
-	/**
-	 * Generate hash string for conversation grouping
-	 */
+    /**
+     * Generate hash string for conversation grouping
+     */
     private hashString(str: string): string {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {

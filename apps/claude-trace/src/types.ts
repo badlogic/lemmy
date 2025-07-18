@@ -87,6 +87,21 @@ export interface ToolCall {
 	error?: string;
 }
 
+// Bedrock-specific types
+export interface BedrockBinaryEvent {
+	bytes: string; // base64 encoded JSON
+	p?: string; // additional payload
+}
+
+export interface BedrockInvocationMetrics {
+	inputTokenCount: number;
+	outputTokenCount: number;
+	invocationLatency: number;
+	firstByteLatency: number;
+	cacheReadInputTokenCount?: number;
+	cacheWriteInputTokenCount?: number;
+}
+
 declare global {
 	interface Window {
 		claudeData: ClaudeData;

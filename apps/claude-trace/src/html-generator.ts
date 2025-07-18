@@ -30,8 +30,12 @@ export class HTMLGenerator {
 		return { htmlTemplate, jsBundle };
 	}
 
-	private filterV1MessagesPairs(pairs: RawPair[]): RawPair[] {
-		return pairs.filter((pair) => pair.request.url.includes("/v1/messages"));
+	private filterClaudeAPIPairs(pairs: RawPair[]): RawPair[] {
+		return pairs.filter((pair) => {
+			const url = pair.request.url;
+			// Include both Anthropic API and Bedrock API calls
+			return url.includes("/v1/messages") || url.includes("bedrock-runtime.amazonaws.com");
+		});
 	}
 
 	private filterShortConversations(pairs: RawPair[]): RawPair[] {

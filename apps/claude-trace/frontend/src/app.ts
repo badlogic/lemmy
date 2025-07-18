@@ -1,7 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { ClaudeData } from "../../src/types";
-import { processRawPairs, RawPairData } from "./utils/data";
 import {
 	SharedConversationProcessor,
 	SimpleConversation,
@@ -30,21 +29,12 @@ export class ClaudeApp extends LitElement {
 
 	private processData() {
 		const start = performance.now();
-		// Process raw pairs with new typed approach
-		const rawPairData: RawPairData[] = this.data.rawPairs
-			.filter((pair) => pair.response !== null) // Filter out orphaned requests
-			.map((pair) => ({
-				request_body: pair.request.body,
-				response_body: pair.response!.body,
-				body_raw: pair.response!.body_raw, // SSE data if available
-				response_headers: pair.response!.headers,
-				timestamp: pair.logged_at, // Use logged_at from Python logger
-			}));
 
-		this.processedPairs = processRawPairs(rawPairData);
-
-		// Process conversations using shared processor
+		// Use shared processor for both processed pairs and conversations
 		const processor = new SharedConversationProcessor();
+
+		// Process raw pairs using shared processor
+		this.processedPairs = processor.processRawPairs(this.data.rawPairs);
 		// Check for include all requests flag from environment or data
 		const includeAllRequests = this.data.metadata?.includeAllRequests || false;
 		this.conversations = processor.mergeConversations(this.processedPairs, {
