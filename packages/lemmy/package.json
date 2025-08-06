@@ -32,7 +32,8 @@
 		"chalk": "^5.4.1",
 		"openai": "^4.103.0",
 		"zod": "^3.25.28",
-		"zod-to-json-schema": "^3.22.0"
+		"zod-to-json-schema": "^3.22.0",
+		"jsonrepair": "^3.13.0"
 	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",

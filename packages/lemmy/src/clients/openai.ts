@@ -17,6 +17,7 @@ import type { OpenAIConfig, OpenAIAskOptions } from "../configs.js";
 import { zodToOpenAI } from "../tools/zod-converter.js";
 import { calculateTokenCost, findModelData } from "../index.js";
 import type { ToolDefinition } from "../types.js";
+import jsonreparser from "jsonrepair";
 
 export class OpenAIClient implements ChatClient<OpenAIAskOptions> {
 	private openai: OpenAI;
@@ -324,7 +325,7 @@ export class OpenAIClient implements ChatClient<OpenAIAskOptions> {
 						if (argsString.trim() === "") {
 							argsString = "{}";
 						}
-						const parsedArgs = JSON.parse(argsString);
+						const parsedArgs = JSON.parse(jsonreparser(argsString));
 						toolCalls.push({
 							id: toolCallData.id,
 							name: toolCallData.name,
