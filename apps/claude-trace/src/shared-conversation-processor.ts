@@ -66,7 +66,7 @@ export class SharedConversationProcessor {
 
         for (let i = 0; i < rawPairs.length; i++) {
             const pair = rawPairs[i];
-            if (!pair?.request || !pair?.response) {
+            if (!pair?.request || !pair.request?.body || !pair?.response) {
                 continue;
             }
 
