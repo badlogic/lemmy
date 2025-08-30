@@ -4,6 +4,23 @@ import { spawn } from "child_process";
 import { RawPair } from "./types";
 import { HTMLGenerator } from "./html-generator";
 
+// Cross-platform helper function
+function openFileInBrowser(filePath: string): void {
+	const isWindows = process.platform === 'win32';
+	const isMac = process.platform === 'darwin';
+	
+	if (isWindows) {
+		// Windows uses 'start'
+		spawn("start", [filePath], { detached: true, stdio: "ignore" }).unref();
+	} else if (isMac) {
+		// macOS uses 'open'
+		spawn("open", [filePath], { detached: true, stdio: "ignore" }).unref();
+	} else {
+		// Linux uses 'xdg-open'
+		spawn("xdg-open", [filePath], { detached: true, stdio: "ignore" }).unref();
+	}
+}
+
 export interface InterceptorConfig {
 	logDirectory?: string;
 	logBaseName?: string;
@@ -453,7 +470,7 @@ export class ClaudeTrafficLogger {
 		const shouldOpenBrowser = process.env.CLAUDE_TRACE_OPEN_BROWSER === "true";
 		if (shouldOpenBrowser && fs.existsSync(this.htmlFile)) {
 			try {
-				spawn("open", [this.htmlFile], { detached: true, stdio: "ignore" }).unref();
+				openFileInBrowser(this.htmlFile);
 				console.log(`Opening ${this.htmlFile} in browser`);
 			} catch (error) {
 				console.log(`Failed to open browser: ${error}`);

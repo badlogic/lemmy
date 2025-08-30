@@ -5,6 +5,28 @@ import * as path from "path";
 import * as fs from "fs";
 import { HTMLGenerator } from "./html-generator";
 
+// Cross-platform helper functions
+function getWhichCommand(executable: string): string {
+	const isWindows = process.platform === 'win32';
+	return isWindows ? `where ${executable}` : `which ${executable}`;
+}
+
+function openFileInBrowser(filePath: string): void {
+	const isWindows = process.platform === 'win32';
+	const isMac = process.platform === 'darwin';
+	
+	if (isWindows) {
+		// Windows uses 'start'
+		spawn("start", [filePath], { detached: true, stdio: "ignore" }).unref();
+	} else if (isMac) {
+		// macOS uses 'open'
+		spawn("open", [filePath], { detached: true, stdio: "ignore" }).unref();
+	} else {
+		// Linux uses 'xdg-open'
+		spawn("xdg-open", [filePath], { detached: true, stdio: "ignore" }).unref();
+	}
+}
+
 // Colors for output
 export const colors = {
 	red: "\x1b[0;31m",
@@ -117,6 +139,7 @@ function resolveToJsFile(filePath: string): string {
 		// If it's a Node.js shebang script, check if it's actually a JS file
 		if (fs.existsSync(realPath)) {
 			const content = fs.readFileSync(realPath, "utf-8");
+			
 			// Check for Node.js shebang
 			if (
 				content.startsWith("#!/usr/bin/env node") ||
@@ -126,6 +149,30 @@ function resolveToJsFile(filePath: string): string {
 			) {
 				// This is likely a JS file without .js extension
 				return realPath;
+			}
+			
+			// Check if it's a Windows batch file that wraps a Node.js script
+			if (realPath.endsWith('.cmd') || realPath.endsWith('.bat')) {
+				// Look for the actual JS file path in the batch file
+				// Handle npm-style batch files with %dp0% pattern
+				const npmMatch = content.match(/"%_prog%"\s+"([^"]+)"/); 
+				if (npmMatch && npmMatch[1]) {
+					// Replace %dp0% with the actual directory path
+					let jsPath = npmMatch[1].replace(/%dp0%/g, path.dirname(realPath));
+					jsPath = path.resolve(jsPath);
+					if (fs.existsSync(jsPath)) {
+						return jsPath;
+					}
+				}
+				
+				// Fallback to simpler node pattern
+				const nodeMatch = content.match(/node\s+"([^"]+)"/); 
+				if (nodeMatch && nodeMatch[1]) {
+					const jsPath = path.resolve(path.dirname(realPath), nodeMatch[1]);
+					if (fs.existsSync(jsPath)) {
+						return jsPath;
+					}
+				}
 			}
 		}
 
@@ -162,10 +209,18 @@ function getClaudeAbsolutePath(customPath?: string): string {
 
 	try {
 		let claudePath = require("child_process")
-			.execSync("which claude", {
+			.execSync(getWhichCommand("claude"), {
 				encoding: "utf-8",
 			})
 			.trim();
+
+		// On Windows, 'where' might return multiple paths - prefer .cmd/.bat files
+		if (process.platform === 'win32' && claudePath.includes('\n')) {
+			const paths = claudePath.split('\n').map((p: string) => p.trim());
+			// Prefer .cmd or .bat files on Windows
+			const windowsExecutable = paths.find((p: string) => p.endsWith('.cmd') || p.endsWith('.bat'));
+			claudePath = windowsExecutable || paths[0];
+		}
 
 		// Handle shell aliases (e.g., "claude: aliased to /path/to/claude")
 		const aliasMatch = claudePath.match(/:\s*aliased to\s+(.+)$/);
@@ -418,7 +473,7 @@ async function generateHTMLFromCLI(
 		const finalOutputFile = await htmlGenerator.generateHTMLFromJSONL(inputFile, outputFile, includeAllRequests);
 
 		if (openInBrowser) {
-			spawn("open", [finalOutputFile], { detached: true, stdio: "ignore" }).unref();
+			openFileInBrowser(finalOutputFile);
 			log(`Opening ${finalOutputFile} in browser`, "green");
 		}
 
