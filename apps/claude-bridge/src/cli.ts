@@ -25,12 +25,6 @@ import {
 import { spawnSync, execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
-
-// Cross-platform helper functions
-function getWhichCommand(executable: string): string {
-	const isWindows = process.platform === 'win32';
-	return isWindows ? `where ${executable}` : `which ${executable}`;
-}
 import { patchClaudeBinary } from "./patch-claude.js";
 import { VERSION } from "./version.js";
 import type { BridgeConfig } from "./types.js";
@@ -472,17 +466,9 @@ function findClaudeExecutable(customPath?: string): string {
 		return resolveToJsFile(customPath);
 	}
 	try {
-		let claudePath = execSync(getWhichCommand("claude"), {
+		let claudePath = execSync("which claude", {
 			encoding: "utf-8",
 		}).trim();
-
-		// On Windows, 'where' might return multiple paths - prefer .cmd/.bat files
-		if (process.platform === 'win32' && claudePath.includes('\n')) {
-			const paths = claudePath.split('\n').map((p: string) => p.trim());
-			// Prefer .cmd or .bat files on Windows
-			const windowsExecutable = paths.find((p: string) => p.endsWith('.cmd') || p.endsWith('.bat'));
-			claudePath = windowsExecutable || paths[0];
-		}
 
 		// Handle shell aliases (e.g., "claude: aliased to /path/to/claude")
 		const aliasMatch = claudePath.match(/:\s*aliased to\s+(.+)$/);
