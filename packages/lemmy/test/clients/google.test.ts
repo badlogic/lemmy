@@ -72,6 +72,7 @@ describe("GoogleClient", () => {
 			const result = await thinkingClient.ask("Solve this step by step: What is 127 * 83? Show your reasoning.", {
 				context,
 				onThinkingChunk,
+				includeThoughts: true,
 			});
 
 			expect(result.type).toBe("success");
@@ -228,7 +229,12 @@ describe("GoogleClient", () => {
 				expect(modelClient.getProvider()).toBe("google");
 
 				// Basic functionality test
-				const result = await modelClient.ask('Say "test" and nothing else', { context: new Context() });
+				const askOptions: any = { context: new Context() };
+				// Enable thinking for thinking models
+				if (model.includes("thinking")) {
+					askOptions.includeThoughts = true;
+				}
+				const result = await modelClient.ask('Say "test" and nothing else', askOptions);
 				expect(result.type).toBe("success");
 				if (result.type === "success") {
 					expect(result.message.content).toBeDefined();
