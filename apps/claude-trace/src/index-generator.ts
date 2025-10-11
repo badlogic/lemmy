@@ -237,7 +237,7 @@ SUMMARY: [summary]`;
 			console.log("    This will incur additional token usage");
 
 			const child = spawn("claude", ["-p", prompt], {
-				stdio: ["pipe", "pipe", "pipe"],
+				stdio: ["ignore", "pipe", "pipe"],
 			});
 
 			let stdout = "";
