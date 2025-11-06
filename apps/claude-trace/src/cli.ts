@@ -35,6 +35,7 @@ ${colors.yellow}OPTIONS:${colors.reset}
   --run-with         Pass all following arguments to Claude process
   --include-all-requests Include all requests made through fetch, otherwise only requests to v1/messages with more than 2 messages in the context
   --no-open          Don't open generated HTML file in browser
+  --no-html          Skip HTML generation (JSONL only)
   --log              Specify custom log file base name (without extension)
   --claude-path      Specify custom path to Claude binary
   --help, -h         Show this help message
@@ -234,6 +235,7 @@ async function runClaudeWithInterception(
 	openInBrowser: boolean = false,
 	customClaudePath?: string,
 	logBaseName?: string,
+	generateHTML: boolean = true,
 ): Promise<void> {
 	log("Claude Trace", "blue");
 	log("Starting Claude with traffic logging", "yellow");
@@ -257,6 +259,7 @@ async function runClaudeWithInterception(
 			NODE_OPTIONS: "--no-deprecation",
 			CLAUDE_TRACE_INCLUDE_ALL_REQUESTS: includeAllRequests ? "true" : "false",
 			CLAUDE_TRACE_OPEN_BROWSER: openInBrowser ? "true" : "false",
+			CLAUDE_TRACE_GENERATE_HTML: generateHTML ? "true" : "false",
 			...(logBaseName ? { CLAUDE_TRACE_LOG_NAME: logBaseName } : {}),
 		},
 		stdio: "inherit",
@@ -473,6 +476,9 @@ async function main(): Promise<void> {
 	// Check for no-open flag (inverted logic - open by default)
 	const openInBrowser = !claudeTraceArgs.includes("--no-open");
 
+	// Check for no-html flag (inverted logic - generate HTML by default)
+	const generateHTML = !claudeTraceArgs.includes("--no-html");
+
 	// Check for custom Claude path
 	let customClaudePath: string | undefined;
 	const claudePathIndex = claudeTraceArgs.indexOf("--claude-path");
@@ -525,7 +531,7 @@ async function main(): Promise<void> {
 	}
 
 	// Scenario 1: No args (or claude with args) -> launch claude with interception
-	await runClaudeWithInterception(claudeArgs, includeAllRequests, openInBrowser, customClaudePath, logBaseName);
+	await runClaudeWithInterception(claudeArgs, includeAllRequests, openInBrowser, customClaudePath, logBaseName, generateHTML);
 }
 
 main().catch((error) => {

@@ -17,6 +17,9 @@ claude-trace
 # Include all API requests (by default, only substantial conversations are logged)
 claude-trace --include-all-requests
 
+# Skip HTML generation (JSONL only, saves ~60% disk space)
+claude-trace --no-html
+
 # Run Claude with specific arguments
 claude-trace --run-with chat --model sonnet-3.5
 
