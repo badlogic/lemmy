@@ -87,20 +87,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			}
 
 			case "TakeScreenshot": {
-				const windowId = request.params.arguments?.windowId as number | undefined;
-				const screenshotPath = takeScreenshot(config.screenshotPath, windowId);
+				const args = request.params.arguments || {};
+				const windowId = args.windowId as number | undefined;
+				const options = {
+					maxWidth: args.maxWidth as number | undefined,
+					maxHeight: args.maxHeight as number | undefined,
+					quality: args.quality as number | undefined,
+					format: args.format as 'png' | 'jpeg' | undefined,
+					returnPath: args.returnPath as boolean | undefined,
+				};
+
+				const screenshotPath = takeScreenshot(config.screenshotPath, windowId, options);
+				
+				// If returnPath is true, just return the file path
+				if (options.returnPath) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Screenshot saved to: ${screenshotPath}${windowId ? ` (window ID: ${windowId})` : ""}\nOptimization: ${options.maxWidth || 1920}x${options.maxHeight || 1080}, ${options.format || 'png'}${options.format === 'jpeg' ? `, quality: ${options.quality || 80}` : ""}`,
+							},
+						],
+					};
+				}
+
+				// Return base64 data as before
 				const base64Data = imageToBase64(screenshotPath);
+				const mimeType = options.format === 'jpeg' ? 'image/jpeg' : 'image/png';
 
 				return {
 					content: [
 						{
 							type: "text",
-							text: `Screenshot taken: ${screenshotPath}${windowId ? ` (window ID: ${windowId})` : ""}`,
+							text: `Screenshot taken: ${screenshotPath}${windowId ? ` (window ID: ${windowId})` : ""}\nOptimization: ${options.maxWidth || 1920}x${options.maxHeight || 1080}, ${options.format || 'png'}${options.format === 'jpeg' ? `, quality: ${options.quality || 80}` : ""}`,
 						},
 						{
 							type: "image",
 							data: base64Data,
-							mimeType: "image/png",
+							mimeType: mimeType,
 						},
 					],
 				};
