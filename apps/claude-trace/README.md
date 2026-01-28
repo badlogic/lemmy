@@ -20,6 +20,12 @@ claude-trace --include-all-requests
 # Run Claude with specific arguments
 claude-trace --run-with chat --model sonnet-3.5
 
+# Use custom output directory (default: .claude-trace)
+claude-trace --output-dir /path/to/logs
+
+# Combine custom output directory with custom log name
+claude-trace --output-dir ~/my-traces --log my-session
+
 # Show help
 claude-trace --help
 
@@ -36,7 +42,7 @@ claude-trace --generate-html logs.jsonl --include-all-requests
 claude-trace --index
 ```
 
-Logs are saved to `.claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}` in your current directory. The HTML file is self-contained and opens in any browser without needing a server.
+Logs are saved to `.claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}` in your current directory (or the directory specified by `--output-dir`). The HTML file is self-contained and opens in any browser without needing a server.
 
 ## Request Filtering
 
