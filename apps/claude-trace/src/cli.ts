@@ -36,6 +36,7 @@ ${colors.yellow}OPTIONS:${colors.reset}
   --include-all-requests Include all requests made through fetch, otherwise only requests to v1/messages with more than 2 messages in the context
   --no-open          Don't open generated HTML file in browser
   --log              Specify custom log file base name (without extension)
+  --output-dir       Specify custom output directory (default: .claude-trace)
   --claude-path      Specify custom path to Claude binary
   --help, -h         Show this help message
 
@@ -92,9 +93,16 @@ ${colors.yellow}EXAMPLES:${colors.reset}
   # Use custom Claude binary path
   claude-trace --claude-path /usr/local/bin/claude
 
+  # Use custom output directory
+  claude-trace --output-dir /path/to/logs
+
+  # Combine custom output directory with custom log name
+  claude-trace --output-dir ~/my-traces --log my-session
+
 ${colors.yellow}OUTPUT:${colors.reset}
   Logs are saved to: ${colors.green}.claude-trace/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}${colors.reset}
   With --log NAME:   ${colors.green}.claude-trace/NAME.{jsonl,html}${colors.reset}
+  With --output-dir: ${colors.green}<output-dir>/log-YYYY-MM-DD-HH-MM-SS.{jsonl,html}${colors.reset}
 
 ${colors.yellow}MIGRATION:${colors.reset}
   This tool replaces Python-based claude-logger and claude-token.py scripts
@@ -234,6 +242,7 @@ async function runClaudeWithInterception(
 	openInBrowser: boolean = false,
 	customClaudePath?: string,
 	logBaseName?: string,
+	outputDir?: string,
 ): Promise<void> {
 	log("Claude Trace", "blue");
 	log("Starting Claude with traffic logging", "yellow");
@@ -258,6 +267,7 @@ async function runClaudeWithInterception(
 			CLAUDE_TRACE_INCLUDE_ALL_REQUESTS: includeAllRequests ? "true" : "false",
 			CLAUDE_TRACE_OPEN_BROWSER: openInBrowser ? "true" : "false",
 			...(logBaseName ? { CLAUDE_TRACE_LOG_NAME: logBaseName } : {}),
+			...(outputDir ? { CLAUDE_TRACE_OUTPUT_DIR: outputDir } : {}),
 		},
 		stdio: "inherit",
 		cwd: process.cwd(),
@@ -487,6 +497,13 @@ async function main(): Promise<void> {
 		logBaseName = claudeTraceArgs[logIndex + 1];
 	}
 
+	// Check for custom output directory
+	let outputDir: string | undefined;
+	const outputDirIndex = claudeTraceArgs.indexOf("--output-dir");
+	if (outputDirIndex !== -1 && claudeTraceArgs[outputDirIndex + 1]) {
+		outputDir = claudeTraceArgs[outputDirIndex + 1];
+	}
+
 	// Scenario 2: --extract-token
 	if (claudeTraceArgs.includes("--extract-token")) {
 		await extractToken(customClaudePath);
@@ -525,7 +542,7 @@ async function main(): Promise<void> {
 	}
 
 	// Scenario 1: No args (or claude with args) -> launch claude with interception
-	await runClaudeWithInterception(claudeArgs, includeAllRequests, openInBrowser, customClaudePath, logBaseName);
+	await runClaudeWithInterception(claudeArgs, includeAllRequests, openInBrowser, customClaudePath, logBaseName, outputDir);
 }
 
 main().catch((error) => {
