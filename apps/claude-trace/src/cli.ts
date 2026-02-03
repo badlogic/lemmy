@@ -104,6 +104,60 @@ For more information, visit: https://github.com/mariozechner/claude-trace
 `);
 }
 
+/**
+ * Convert MSYS2/Git Bash style paths to Windows paths
+ * E.g., /c/Users/name/path -> C:\Users\name\path
+ */
+function convertMsys2Path(inputPath: string): string {
+	// Check if it's a MSYS2/Git Bash style path (e.g., /c/users/...)
+	const msys2Match = inputPath.match(/^\/([a-zA-Z])\/(.*)/);
+	if (msys2Match) {
+		const drive = msys2Match[1].toUpperCase();
+		const rest = msys2Match[2];
+		return `${drive}:\\${rest.replace(/\//g, "\\")}`;
+	}
+	return inputPath;
+}
+
+/**
+ * Extract JS file path from npm bash shim script
+ * Looks for patterns like: $basedir/...cli.js or "path/to/cli.js"
+ */
+function extractJsFromBashScript(scriptContent: string, baseDir: string): string | null {
+	// Try to find JS file reference patterns
+	const patterns = [
+		// Pattern 1: basedir/node_modules/.../cli.js
+		/\$basedir\/(.+?\.js)/,
+		// Pattern 2: Direct quoted paths
+		/"([^"]+\.js)"/,
+		// Pattern 3: Unquoted paths
+		/([a-zA-Z]:\/[^\s]+\.js)/,
+		/([a-zA-Z]:\\[^\s]+\.js)/,
+	];
+
+	for (const pattern of patterns) {
+		const match = scriptContent.match(pattern);
+		if (match && match[1]) {
+			let jsPath = match[1];
+
+			// If it's a basedir reference, resolve it
+			if (jsPath.includes("$basedir")) {
+				jsPath = jsPath.replace(/\$basedir/, baseDir);
+			}
+
+			// Convert to Windows path if needed
+			jsPath = convertMsys2Path(jsPath);
+
+			// Verify the file exists
+			if (fs.existsSync(jsPath)) {
+				return jsPath;
+			}
+		}
+	}
+
+	return null;
+}
+
 function resolveToJsFile(filePath: string): string {
 	try {
 		// First, resolve any symlinks
@@ -167,22 +221,41 @@ function getClaudeAbsolutePath(customPath?: string): string {
 			})
 			.trim();
 
+		// Convert MSYS2/Git Bash style paths to Windows paths if necessary
+		claudePath = convertMsys2Path(claudePath);
+
 		// Handle shell aliases (e.g., "claude: aliased to /path/to/claude")
 		const aliasMatch = claudePath.match(/:\s*aliased to\s+(.+)$/);
 		if (aliasMatch && aliasMatch[1]) {
-			claudePath = aliasMatch[1];
+			claudePath = convertMsys2Path(aliasMatch[1]);
 		}
 
 		// Check if the path is a bash wrapper
 		if (fs.existsSync(claudePath)) {
 			const content = fs.readFileSync(claudePath, "utf-8");
-			if (content.startsWith("#!/bin/bash")) {
-				// Parse bash wrapper to find actual executable
-				const execMatch = content.match(/exec\s+"([^"]+)"/);
-				if (execMatch && execMatch[1]) {
-					const actualPath = execMatch[1];
-					// Resolve any symlinks to get the final JS file
-					return resolveToJsFile(actualPath);
+			if (content.startsWith("#!/bin/bash") || content.startsWith("#!/bin/sh")) {
+				// Extract the base directory from the bash script
+				const baseDir = path.dirname(claudePath);
+
+				// Try to extract JS file path from bash script
+				const jsPath = extractJsFromBashScript(content, baseDir);
+				if (jsPath && fs.existsSync(jsPath)) {
+					return resolveToJsFile(jsPath);
+				}
+
+				// Fallback: look for common npm locations
+				const npmGlobalDir = baseDir;
+				const possiblePaths = [
+					path.join(npmGlobalDir, "node_modules", "@anthropic-ai", "claude-code", "dist", "cli.js"),
+					path.join(npmGlobalDir, "node_modules", "@anthropic-ai", "claude-code", "cli.js"),
+					path.join(npmGlobalDir, "node_modules", "claude", "bin", "cli.js"),
+					path.join(npmGlobalDir, "node_modules", "claude", "dist", "cli.js"),
+				];
+
+				for (const possiblePath of possiblePaths) {
+					if (fs.existsSync(possiblePath)) {
+						return resolveToJsFile(possiblePath);
+					}
 				}
 			}
 		}
@@ -195,10 +268,11 @@ function getClaudeAbsolutePath(customPath?: string): string {
 
 		if (fs.existsSync(localClaudeWrapper)) {
 			const content = fs.readFileSync(localClaudeWrapper, "utf-8");
-			if (content.startsWith("#!/bin/bash")) {
-				const execMatch = content.match(/exec\s+"([^"]+)"/);
-				if (execMatch && execMatch[1]) {
-					return resolveToJsFile(execMatch[1]);
+			if (content.startsWith("#!/bin/bash") || content.startsWith("#!/bin/sh")) {
+				const baseDir = path.dirname(localClaudeWrapper);
+				const jsPath = extractJsFromBashScript(content, baseDir);
+				if (jsPath && fs.existsSync(jsPath)) {
+					return resolveToJsFile(jsPath);
 				}
 			}
 		}

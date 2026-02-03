@@ -49,7 +49,7 @@
 		"typescript": "^5.0.0"
 	},
 	"dependencies": {
-		"@anthropic-ai/claude-code": "^1.0.0",
+		"@anthropic-ai/claude-code": "^2.1.29",
 		"@anthropic-ai/sdk": "^0.52.0",
 		"@mariozechner/claude-trace": "^1.0.3"
 	},
