@@ -249,7 +249,7 @@ export class SharedConversationProcessor {
     /**
      * Parse streaming response from raw SSE data
      */
-    private parseStreamingResponse(bodyRaw: string): Message {
+    public parseStreamingResponse(bodyRaw: string): Message {
         if (this.isBedrockResponse(bodyRaw)) {
             return this.parseBedrockStreamingResponse(bodyRaw);
         } else {
