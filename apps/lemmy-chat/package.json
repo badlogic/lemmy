@@ -14,7 +14,10 @@
 		"typecheck": "tsc --noEmit",
 		"run": "tsx --no-deprecation src/index.ts chat",
 		"start": "node dist/index.js",
-		"install-global": "npm run build && npm link"
+		"install-global": "npm run build && npm link",
+		"test:run": "tsx --test test/*.test.ts",
+		"test:typecheck": "tsc -p tsconfig.test.json",
+		"test:live": "tsx test/live-search.ts"
 	},
 	"dependencies": {
 		"@mariozechner/lemmy": "file:../../packages/lemmy",
@@ -24,7 +27,8 @@
 		"chalk": "^5.4.1",
 		"commander": "^12.0.0",
 		"mime-types": "^3.0.1",
-		"zod": "^3.23.8"
+		"zod": "^3.23.8",
+		"@modelcontextprotocol/sdk": "^1.12.0"
 	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",

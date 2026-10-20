@@ -1,3 +1,4 @@
+import { resolveSearchMode } from "./search.js";
 import { Command } from "commander";
 import {
 	AnthropicModelData,
@@ -21,6 +22,7 @@ import {
 	saveDefaults,
 	loadDefaults,
 	loadDefaultsConfig,
+	saveDefaultsConfig,
 	setDefaultProvider,
 	clearDefaults,
 	DEFAULTS_FILE,
@@ -121,9 +123,15 @@ async function executeProviderAction(
 	}
 
 	// Use centralized config building
-	const config = getProviderConfig(provider as keyof CoreProviderConfigMap, options);
+	const config = getProviderConfig(provider as keyof CoreProviderConfigMap, options, options.apiKey);
 
-	await runOneShot(provider, message, config, allAttachments);
+	await runOneShot(
+		provider,
+		message,
+		config,
+		allAttachments,
+		resolveSearchMode(options.search, loadDefaultsConfig().search),
+	);
 }
 
 export function createModelsCommand(): Command {
@@ -136,6 +144,10 @@ export function createOneShotCommand(provider: string): Command {
 	if (!command) {
 		throw new Error(`No command available for provider: ${provider}`);
 	}
+	// These client fields are not part of CLIENT_CONFIG_SCHEMAS' ask-option schemas.
+	command.option("-m, --model <model>", "Model to use");
+	command.option("--apiKey <key>", "API key (or use environment variables)");
+	command.option("--search <mode>", "Web search: parallel (default) or off");
 	return command;
 }
 
@@ -148,13 +160,22 @@ export function createDefaultsCommand(): Command {
 	command.option("-s, --show", "Show current defaults");
 	command.option("-c, --clear", "Clear saved defaults");
 	command.option("--default-provider <provider>", "Set the default provider");
+	command.option("--search <mode>", "Save web search: parallel or off");
 
 	// Allow unknown options to be captured as arguments
 	command.allowUnknownOption();
 
 	command.action((args: string[], options: any) => {
+		if (options.search !== undefined) {
+			const config = loadDefaultsConfig();
+			config.search = resolveSearchMode(options.search);
+			saveDefaultsConfig(config);
+			console.log(`Web search: ${config.search}`);
+			if (args.length === 0) return;
+		}
 		if (options.show) {
 			const config = loadDefaultsConfig();
+			console.log(`Web search: ${resolveSearchMode(undefined, config.search)}`);
 			if (Object.keys(config.providers).length === 0) {
 				console.log("No defaults set.");
 				console.log("\nSet defaults with:");
@@ -249,6 +270,7 @@ export function createChatCommand(): Command {
 	command.option("-m, --model <model>", "Model to use");
 	command.option("--apiKey <key>", "API key (or use environment variables)");
 	command.option("--simulate-input <inputs...>", "Simulate input sequences for testing");
+	command.option("--search <mode>", "Web search: parallel (default) or off");
 
 	// Add common options that work across providers
 	command.option("--thinkingEnabled", "Enable thinking for supported models");
@@ -276,7 +298,12 @@ export function createChatCommand(): Command {
 			const config = getProviderConfig(provider as keyof CoreProviderConfigMap, options, options.apiKey);
 
 			// Pass the built config to TUI chat
-			await runTUIChat(provider, config, options.simulateInput);
+			await runTUIChat(
+				provider,
+				config,
+				options.simulateInput,
+				resolveSearchMode(options.search, loadDefaultsConfig().search),
+			);
 		} catch (error) {
 			console.error(`❌ Error: ${error instanceof Error ? error.message : String(error)}`);
 			process.exit(1);

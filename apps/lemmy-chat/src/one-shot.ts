@@ -1,10 +1,13 @@
-import { Attachment, Context, createClientForModel, ProviderConfigMap } from "@mariozechner/lemmy";
+import { SearchConversation, resolveSearchMode, type SearchMode } from "./search.js";
+import { loadDefaultsConfig } from "./defaults.js";
+import { Attachment, createClientForModel, ProviderConfigMap } from "@mariozechner/lemmy";
 
 export async function runOneShot(
 	provider: string,
 	message: string,
 	config: ProviderConfigMap[keyof ProviderConfigMap],
 	attachments: Attachment[] = [],
+	searchMode: SearchMode = resolveSearchMode(undefined, loadDefaultsConfig().search),
 ): Promise<void> {
 	// Config is already validated and built by the caller
 
@@ -18,7 +21,7 @@ export async function runOneShot(
 
 	// Create client and context
 	const client = createClientForModel(config.model, config);
-	const context = new Context();
+	const context = new SearchConversation(searchMode);
 
 	// Set up streaming callbacks
 	let hasThinking = false;
@@ -46,7 +49,8 @@ export async function runOneShot(
 	// Use AskInput format if we have attachments, otherwise use simple string
 	const askInput = attachments.length > 0 ? { content: message, attachments } : message;
 
-	const result = await client.ask(askInput, {
+	const result = await context.ask(client, askInput, {
+		...config.defaults,
 		context,
 		onThinkingChunk,
 		onChunk,

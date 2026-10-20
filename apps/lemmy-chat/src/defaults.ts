@@ -1,3 +1,4 @@
+import type { SearchMode } from "./search.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -49,6 +50,7 @@ export type ProviderConfigMap = {
 export type AnyProviderConfig = ProviderConfigMap[keyof ProviderConfigMap];
 
 export interface DefaultsConfig {
+	search?: SearchMode;
 	defaultProvider?: string;
 	providers: {
 		[provider: string]: any; // We'll validate with schemas instead of types
@@ -72,6 +74,7 @@ export function loadDefaultsConfig(): DefaultsConfig {
 
 		return {
 			defaultProvider: parsed.defaultProvider,
+			...(parsed.search !== undefined ? { search: parsed.search } : {}),
 			providers: parsed.providers || {},
 		};
 	} catch (error) {
@@ -164,6 +167,10 @@ export function getProviderConfig<T extends keyof CoreProviderConfigMap>(
 		...providerDefaults,
 		defaults: mergedDefaults,
 	};
+	// Client options belong on the client, rather than inside per-request defaults.
+	for (const field of ["model", "baseURL", "maxRetries", "organization", "projectId"]) {
+		if (cliOptions[field] !== undefined) clientConfig[field] = cliOptions[field];
+	}
 
 	// Handle API key priority: runtime > stored > environment
 	if (runtimeApiKey) {

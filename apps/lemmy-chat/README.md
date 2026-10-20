@@ -31,6 +31,33 @@ lemmy-chat defaults anthropic -m claude-3-5-sonnet-20241022
 lemmy-chat chat
 ```
 
+## Web search
+
+Chat and one-shot messages can search the web and read public pages with
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp).
+Search uses Fast mode and needs no Parallel account or API key. Your existing
+model provider and credentials are used as before. The model decides when to
+call `WebSearch` or `WebFetch`; these calls send their arguments to Parallel.
+The anonymous service is intended for exploration and light use and has usage limits.
+
+Search is enabled by default for models that support tools. Disable it for one
+run, or save your preference in `~/.lemmy-chat/defaults.json`:
+
+```bash
+lemmy-chat chat --search off
+lemmy-chat openai -m gpt-4o --search off "Explain this code"
+lemmy-chat defaults --search off
+lemmy-chat chat --search parallel  # Override the saved preference for this run
+lemmy-chat defaults --search parallel
+```
+
+A run's `--search` takes precedence over the saved setting. Clearing defaults
+restores `parallel`. Models marked as lacking tool support and requests with
+`toolChoice: none` do not receive the search tools. Search failures are returned
+to the model as tool errors, without switching providers. Each search/fetch call
+has a 15-second deadline, and a turn stops after eight tool rounds. `/clear`
+starts a fresh conversation, including its anonymous search identifier.
+
 ## Commands
 
 ### Interactive Chat Mode
@@ -188,6 +215,9 @@ npm run build
 
 # Type checking
 npm run typecheck
+
+# Deterministic search and application tests (no model or search credentials)
+npm run test:run
 
 # Test with simulation
 npx tsx --no-deprecation src/index.ts chat --simulate-input "Hello world" "ENTER"
