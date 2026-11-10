@@ -164,13 +164,17 @@ export class ReverseProxyServer {
 
 	private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
 		const requestTimestamp = Date.now();
-		let requestBody = "";
+		// Collected as raw bytes: Claude Code gzips some request bodies (e.g. compaction),
+		// and decoding chunks to strings would corrupt what gets forwarded.
+		const requestChunks: Buffer[] = [];
 
 		req.on("data", (chunk) => {
-			requestBody += chunk;
+			requestChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 		});
 
 		req.on("end", () => {
+			const requestBuffer = Buffer.concat(requestChunks);
+
 			// Forward the request to the real Anthropic API
 			const options: https.RequestOptions = {
 				hostname: this.targetHost,
@@ -202,6 +206,7 @@ export class ReverseProxyServer {
 
 					if (shouldLog) {
 						// Parse request body
+						const requestBody = this.decodeBody(requestBuffer, req.headers["content-encoding"]);
 						let parsedRequestBody: any = null;
 						try {
 							parsedRequestBody = requestBody ? JSON.parse(requestBody) : null;
@@ -209,23 +214,10 @@ export class ReverseProxyServer {
 							parsedRequestBody = requestBody || null;
 						}
 
-						// Decompress response if gzipped
-						const rawBuffer = Buffer.concat(responseChunks);
-						let responseBody: string;
-						const contentEncoding = (proxyRes.headers["content-encoding"] || "").toLowerCase();
-						try {
-							if (contentEncoding === "gzip") {
-								responseBody = zlib.gunzipSync(rawBuffer).toString("utf-8");
-							} else if (contentEncoding === "br") {
-								responseBody = zlib.brotliDecompressSync(rawBuffer).toString("utf-8");
-							} else if (contentEncoding === "deflate") {
-								responseBody = zlib.inflateSync(rawBuffer).toString("utf-8");
-							} else {
-								responseBody = rawBuffer.toString("utf-8");
-							}
-						} catch {
-							responseBody = rawBuffer.toString("utf-8");
-						}
+						const responseBody = this.decodeBody(
+							Buffer.concat(responseChunks),
+							proxyRes.headers["content-encoding"],
+						);
 
 						// Parse response body
 						let parsedResponseBody: { body?: any; body_raw?: string; events?: SSEEvent[] } = {};
@@ -285,11 +277,27 @@ export class ReverseProxyServer {
 			});
 
 			// Forward request body
-			if (requestBody) {
-				proxyReq.write(requestBody);
+			if (requestBuffer.length > 0) {
+				proxyReq.write(requestBuffer);
 			}
 			proxyReq.end();
 		});
+	}
+
+	/** Decompresses a body according to its content-encoding and decodes it as UTF-8, for logging. */
+	private decodeBody(buffer: Buffer, encoding: string | string[] | undefined): string {
+		const contentEncoding = String(encoding || "").toLowerCase();
+		try {
+			if (contentEncoding === "gzip") return zlib.gunzipSync(buffer).toString("utf-8");
+			if (contentEncoding === "br") return zlib.brotliDecompressSync(buffer).toString("utf-8");
+			if (contentEncoding === "deflate") return zlib.inflateSync(buffer).toString("utf-8");
+			if (contentEncoding === "zstd" && "zstdDecompressSync" in zlib) {
+				return (zlib as any).zstdDecompressSync(buffer).toString("utf-8");
+			}
+		} catch {
+			// Fall through to the raw bytes
+		}
+		return buffer.toString("utf-8");
 	}
 
 	public stop(): void {
